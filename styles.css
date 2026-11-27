@@ -136,27 +136,85 @@ body.night .tab { color: #f6edd8; }
   display: grid;
   place-items: center;
   padding: 24px;
+  overflow: hidden;
   background:
-    radial-gradient(900px 420px at 50% -10%, rgba(255, 220, 150, 0.9), transparent 55%),
-    linear-gradient(180deg, #8ec8ea 0%, #d5eeb4 36%, #87b86a 100%);
+    radial-gradient(900px 420px at 50% -8%, rgba(255, 220, 150, 0.95), transparent 58%),
+    linear-gradient(180deg, #8ec8ea 0 18%, rgba(213, 238, 180, 0) 42%),
+    url("art/meadow-field.png?v=5") center bottom / cover no-repeat;
+  image-rendering: pixelated;
 }
 
+.menu-scene {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.menu-scene img {
+  position: absolute;
+  image-rendering: pixelated;
+  bottom: 0;
+}
+
+.menu-tree { width: 220px; height: auto; }
+.menu-tree-l { left: 4%; }
+.menu-tree-r { right: 6%; }
+.menu-stall { left: 18%; width: 150px; bottom: 6%; }
+.menu-house { right: 16%; width: 210px; bottom: 4%; }
+.menu-farmer { left: 50%; width: 84px; margin-left: 168px; bottom: 8%; }
+
 .menu-card {
+  position: relative;
+  z-index: 1;
   width: min(420px, 100%);
-  padding: 36px 28px 28px;
+  padding: 32px 28px 26px;
   border: 8px solid #7a4e2a;
   border-radius: 18px;
   background: var(--paper);
-  box-shadow: 0 10px 0 #5c3a22, 0 18px 30px rgba(60, 30, 10, 0.22);
+  color: var(--ink);
+  box-shadow: 0 10px 0 #5c3a22, 0 22px 40px rgba(60, 30, 10, 0.28);
   text-align: center;
 }
 
 .menu-card h1 {
-  margin: 0 0 28px;
+  margin: 0 0 14px;
+  color: #3e2c1c;
   font-size: 48px;
   font-weight: 700;
   letter-spacing: -0.03em;
   line-height: 0.95;
+}
+
+.menu-crops {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.menu-crops img {
+  width: 40px;
+  height: 40px;
+  image-rendering: pixelated;
+}
+
+.menu-line {
+  margin: 0 0 18px;
+  color: #6d5c48;
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.menu-version {
+  margin: 14px 0 0;
+  color: #8a7764;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+@media (max-width: 760px) {
+  .menu-tree { width: 120px; }
+  .menu-stall, .menu-house, .menu-farmer { display: none; }
 }
 
 .menu-card button {
@@ -298,6 +356,73 @@ body.building .farm-grid { cursor: crosshair; }
   box-shadow: 0 6px 0 #5c3a22;
 }
 
+.tool-bar[hidden] { display: none; }
+
+.tool-bar {
+  position: absolute;
+  left: 12px;
+  bottom: 12px;
+  z-index: 7;
+  display: flex;
+  gap: 6px;
+  padding: 6px;
+  border: 3px solid #6b3e24;
+  border-radius: 16px;
+  background: #fffaf0;
+  color: #3e2c1c;
+  box-shadow: 0 4px 0 #5c3a22;
+}
+
+.tool-bar button {
+  position: relative;
+  width: 52px;
+  height: 52px;
+  padding: 4px;
+  border: 3px solid #e6d3b0;
+  border-radius: 12px;
+  background: #f3e6cc;
+  color: #3e2c1c;
+  box-shadow: none;
+}
+
+.tool-bar button.selected {
+  border-color: #e0a322;
+  background: #fff6d4;
+  box-shadow: inset 0 0 0 2px #6b3e24;
+}
+
+.tool-bar img,
+.tool-bar svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+  image-rendering: pixelated;
+}
+
+.tool-bar b {
+  position: absolute;
+  right: 3px;
+  bottom: 1px;
+  min-width: 14px;
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 1;
+  text-align: right;
+  color: #3e2c1c;
+  text-shadow: 0 1px 0 #fffaf0, 1px 0 0 #fffaf0, -1px 0 0 #fffaf0;
+}
+
+.tool-bar .tool-key {
+  position: absolute;
+  left: 4px;
+  top: 2px;
+  font-style: normal;
+  font-size: 11px;
+  font-weight: 800;
+  line-height: 1;
+  color: #6d5c48;
+}
+
 .coin {
   display: inline-block;
   width: 14px;
@@ -378,13 +503,26 @@ body.night .player { filter: saturate(0.85) brightness(0.72); }
     radial-gradient(circle at 46% 78%, #3f7a30 0 1.5px, transparent 2.5px);
 }
 
+.farm-scene[data-place="farm"] .farm-grid {
+  background-color: #6aaa3c;
+  background-image: url("art/meadow-field.png?v=5");
+  background-repeat: no-repeat;
+  background-size: calc(var(--tile) * var(--cols)) calc(var(--tile) * var(--rows));
+  image-rendering: pixelated;
+}
+
 .tile.yard,
 .tile.meadow {
-  background-color: var(--grass, #93be62);
-  background-image:
-    radial-gradient(circle at var(--s1x, 22%) var(--s1y, 30%), var(--s1c, #5a9434) 0 2px, transparent 3px),
-    radial-gradient(circle at var(--s2x, 70%) var(--s2y, 64%), var(--s2c, #d5e9a4) 0 2px, transparent 3px),
-    radial-gradient(circle at var(--s3x, 46%) var(--s3y, 78%), #3f7a30 0 1.5px, transparent 2.5px);
+  background: transparent;
+}
+
+.farm-scene[data-place="farm"] .tile.house,
+.farm-scene[data-place="farm"] .tile.bed,
+.farm-scene[data-place="farm"] .tile.stall,
+.farm-scene[data-place="farm"] .tile.shop,
+.farm-scene[data-place="farm"] .tile.tree,
+.farm-scene[data-place="farm"] .tile.well {
+  background: transparent;
 }
 
 .tile.path {
@@ -549,33 +687,60 @@ body.night .player { filter: saturate(0.85) brightness(0.72); }
 
 .prop svg { width: 100%; height: 100%; display: block; }
 
-.house-prop {
-  width: calc(var(--tile) * 2);
-  height: calc(var(--tile) * 2);
+.prop.house-prop {
+  width: calc(var(--tile) * 3);
+  height: calc(var(--tile) * 3);
   left: 0;
-  bottom: 0;
+  right: auto;
   top: auto;
+  bottom: 0;
   z-index: 2;
 }
 
-.shop-prop {
-  width: calc(var(--tile) * 1.35);
+.prop.house-prop img {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: fill;
+  image-rendering: auto;
+}
+
+.prop.shop-prop {
+  width: calc(var(--tile) * 2);
   height: calc(var(--tile) * 2);
   left: 50%;
+  right: auto;
   bottom: 0;
   top: auto;
   transform: translateX(-50%);
   z-index: 2;
 }
 
-.tree-prop {
-  width: calc(var(--tile) * 1.7);
-  height: calc(var(--tile) * 1.85);
+.prop.shop-prop img {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: contain;
+  image-rendering: pixelated;
+}
+
+.prop.tree-prop {
+  width: calc(var(--tile) * 3.4);
+  height: calc(var(--tile) * 3.7);
   left: 50%;
+  right: auto;
   bottom: 2px;
   top: auto;
   transform: translateX(-50%);
   z-index: 3;
+}
+
+.prop.tree-prop img {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: contain;
+  image-rendering: pixelated;
 }
 
 .flower-prop {
@@ -592,7 +757,27 @@ body.night .player { filter: saturate(0.85) brightness(0.72); }
   bottom: var(--gy, 6px);
 }
 
-.stall-prop { inset: 6px 4px 2px; }
+.prop.stall-prop,
+.prop.well-prop {
+  inset: auto;
+  left: 50%;
+  right: auto;
+  bottom: 0;
+  top: auto;
+  width: calc(var(--tile) * 2);
+  height: calc(var(--tile) * 2);
+  transform: translateX(-50%);
+  z-index: 3;
+}
+
+.prop.stall-prop img,
+.prop.well-prop img {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: contain;
+  image-rendering: pixelated;
+}
 
 .player {
   position: absolute;
@@ -607,6 +792,32 @@ body.night .player { filter: saturate(0.85) brightness(0.72); }
 }
 
 .player.walking svg { animation: farmer-bob 0.28s ease-in-out infinite; }
+
+.player:not(.hand) img {
+  width: calc(var(--tile) * 1.28);
+  height: calc(var(--tile) * 1.42);
+  object-fit: contain;
+  transform-origin: 50% 100%;
+  position: relative;
+}
+
+.player[data-facing="left"] img { transform: scaleX(-1); }
+
+.player.walking:not(.hand) img { animation: farmer-walk 0.32s ease-in-out infinite; }
+
+.player.acting[data-chore="till"] img {
+  transform-origin: 60% 80%;
+  animation: hoe-chop 0.375s ease-in-out 2;
+}
+
+.player.acting[data-chore="plant"] img { animation: plant-kneel 0.75s ease-in-out; }
+
+.player.acting[data-chore="water"] img {
+  transform-origin: 50% 75%;
+  animation: water-sway 0.375s ease-in-out 2;
+}
+
+.player.acting[data-chore="harvest"] img { animation: harvest-hop 0.375s ease-in-out 2; }
 
 .player.acting[data-chore="till"] svg {
   transform-origin: 60% 80%;
@@ -665,6 +876,11 @@ body.night .player { filter: saturate(0.85) brightness(0.72); }
 
 @keyframes farmer-bob {
   50% { translate: 0 -3px; }
+}
+
+@keyframes farmer-walk {
+  0%, 100% { translate: 0 0; rotate: -3deg; }
+  50% { translate: 0 -1px; rotate: 3deg; }
 }
 
 @keyframes hoe-chop {
@@ -1389,6 +1605,20 @@ body.night .player { filter: saturate(0.85) brightness(0.72); }
 
 .trade-row b { font-variant-numeric: tabular-nums; }
 
+.trade-pnl {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  align-items: baseline;
+  margin: 0 0 8px;
+  font-family: var(--sans);
+  font-size: 13px;
+  font-weight: 700;
+}
+.trade-pnl[hidden] { display: none; }
+.trade-pnl span { color: var(--soft); font-weight: 600; }
+.trade-pnl .up { color: var(--up); }
+.trade-pnl .down { color: var(--down); }
 .trade-row .up { color: var(--up); }
 .trade-row .down { color: var(--down); }
 
@@ -1460,7 +1690,7 @@ body.night .player { filter: saturate(0.85) brightness(0.72); }
 
 .advice { margin: 0 0 14px; font-size: 14px; line-height: 1.45; }
 
-.qty-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 10px; }
+.qty-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 10px; }
 
 #seed-qty { grid-template-columns: repeat(3, 1fr); }
 
@@ -1508,6 +1738,8 @@ button:disabled { cursor: not-allowed; opacity: 0.45; }
   .plot.ready .crop-icon { animation: none; }
   .plot:hover { transform: none; }
   .player.acting svg,
+  .player.acting img,
+  .player.walking img,
   .chore-fx i,
   .chore-fx b,
   .tile.field.till,

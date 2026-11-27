@@ -199,6 +199,13 @@ const PLANTS = {
   `),
 };
 
+const READY_ART = {
+  wheatReady: "art/wheat-ready.png?v=1",
+  carrotReady: "art/carrot-ready.png?v=1",
+  tomatoReady: "art/tomato-ready.png?v=1",
+  cottonReady: "art/cotton-ready.png?v=1",
+};
+
 const ICONS = {
   wheat: PLANTS.wheatReady,
   carrot: PLANTS.carrotReady,
@@ -206,28 +213,7 @@ const ICONS = {
   cotton: PLANTS.cottonReady,
 };
 
-const FARMER = px(`
-  <rect x="2" y="3" width="12" height="2" fill="#e2b14a"/>
-  <rect x="5" y="1" width="6" height="3" fill="#f0c56a"/>
-  <rect x="4" y="5" width="8" height="2" fill="#6b3a22"/>
-  <rect x="5" y="6" width="6" height="4" fill="#f0c4a0"/>
-  <rect x="6" y="7" width="1" height="1" fill="#3a2a22"/>
-  <rect x="9" y="7" width="1" height="1" fill="#3a2a22"/>
-  <rect x="4" y="10" width="8" height="2" fill="#d4533c"/>
-  <rect x="5" y="12" width="6" height="4" fill="#3c6eae"/>
-  <rect x="5" y="16" width="2" height="2" fill="#4a3428"/>
-  <rect x="9" y="16" width="2" height="2" fill="#4a3428"/>
-`, 16, 18);
-
-const FARMER_BACK = px(`
-  <rect x="2" y="3" width="12" height="2" fill="#e2b14a"/>
-  <rect x="5" y="1" width="6" height="3" fill="#f0c56a"/>
-  <rect x="4" y="5" width="8" height="3" fill="#6b3a22"/>
-  <rect x="4" y="8" width="8" height="3" fill="#d4533c"/>
-  <rect x="5" y="11" width="6" height="5" fill="#3c6eae"/>
-  <rect x="5" y="16" width="2" height="2" fill="#4a3428"/>
-  <rect x="9" y="16" width="2" height="2" fill="#4a3428"/>
-`, 16, 18);
+const FARMER = `<img src="art/farmer.png?v=1" alt="">`;
 
 const HELPER = px(`
   <rect x="2" y="3" width="12" height="2" fill="#5f8f3a"/>
@@ -322,45 +308,6 @@ const TREE = px(`
   <rect x="4" y="5" width="2" height="2" fill="#c8e57a"/>
   <rect x="9" y="7" width="2" height="2" fill="#2f7a28"/>
 `, 16, 18);
-
-const GROUND = [
-  px(`
-    <rect x="2" y="8" width="2" height="6" fill="#3f8a32"/>
-    <rect x="5" y="4" width="2" height="10" fill="#5aaa40"/>
-    <rect x="8" y="7" width="2" height="7" fill="#2f7a28"/>
-    <rect x="11" y="9" width="2" height="5" fill="#7dba45"/>
-  `, 16, 14),
-  px(`
-    <rect x="4" y="2" width="2" height="12" fill="#3f8a32"/>
-    <rect x="7" y="5" width="2" height="9" fill="#2f7a28"/>
-    <rect x="10" y="1" width="2" height="13" fill="#5aaa40"/>
-    <rect x="10" y="1" width="2" height="2" fill="#c8e57a"/>
-  `, 16, 14),
-  px(`
-    <rect x="3" y="9" width="9" height="4" fill="#9aa3a8"/>
-    <rect x="4" y="8" width="6" height="2" fill="#d5dbe0"/>
-    <rect x="5" y="12" width="6" height="2" fill="#6e787e"/>
-    <rect x="8" y="9" width="2" height="2" fill="#eef2f4"/>
-  `, 16, 14),
-  px(`
-    <rect x="7" y="8" width="2" height="6" fill="#3f8a32"/>
-    <rect x="4" y="4" width="4" height="4" fill="#5aaa40"/>
-    <rect x="8" y="3" width="4" height="4" fill="#7dba45"/>
-    <rect x="6" y="6" width="4" height="4" fill="#2f7a28"/>
-  `, 16, 14),
-  px(`
-    <rect x="7" y="7" width="2" height="6" fill="#4f8f34"/>
-    <rect x="4" y="4" width="8" height="2" fill="#f6edd8"/>
-    <rect x="6" y="2" width="4" height="5" fill="#fffaf0"/>
-    <rect x="7" y="4" width="2" height="2" fill="#f2d06a"/>
-  `, 16, 14),
-  px(`
-    <rect x="7" y="7" width="2" height="6" fill="#3f8a32"/>
-    <rect x="4" y="2" width="8" height="5" fill="#c4473a"/>
-    <rect x="6" y="3" width="4" height="3" fill="#e23d32"/>
-    <rect x="7" y="4" width="2" height="2" fill="#4a1814"/>
-  `, 16, 14),
-];
 
 const CITY_BUILDINGS = [
   { id: "bakery", name: "Bakery", x: 1, y: 1, w: 3, h: 3 },
@@ -499,7 +446,14 @@ const DIR_FROM_CODE = {
   KeyD: "right",
 };
 
-const SEED_KEYS = { Digit1: "wheat", Digit2: "carrot", Digit3: "tomato", Digit4: "cotton" };
+const TOOL_KEYS = {
+  Digit1: { tool: "hoe" },
+  Digit2: { tool: "water" },
+  Digit3: { tool: "seed", seed: "wheat" },
+  Digit4: { tool: "seed", seed: "carrot" },
+  Digit5: { tool: "seed", seed: "tomato" },
+  Digit6: { tool: "seed", seed: "cotton" },
+};
 const REACH = 42;
 
 const $ = (id) => document.getElementById(id);
@@ -587,10 +541,9 @@ function roleAt(x, y, place) {
   if (!inBounds(x, y)) return "void";
   const here = place || (state.place === "city" ? "city" : "farm");
   if (here === "city") return cityRole(x, y);
-  if (x === 17 && y === 2) return "stall";
-  if (x === 17 && (y === 9 || y === 10)) return "shop";
-  if (x === 19 && y === 6) return "bed";
-  if (x >= 19 && x <= 20 && y >= 5 && y <= 6) return "house";
+  if (x === 19 && (y === 5 || y === 6)) return "shop";
+  if (x === 17 && y === 10) return "bed";
+  if (x >= 17 && x <= 19 && y >= 8 && y <= 10) return "house";
   const well = world && world.well ? world.well : { x: 1, y: 12 };
   if (x === well.x && y === well.y) return "well";
   if (isTree(x, y)) return "tree";
@@ -609,7 +562,7 @@ function isTree(x, y) {
     || (x === 23 && y === 6)
     || (x === 0 && y === 13)
     || (x === 23 && y === 13)
-    || (x === 4 && y === 1)
+    || (x === 15 && y === 4)
     || (x === 12 && y === 1)
     || (x === 8 && y === 12)
     || (x === 22 && y === 8)
@@ -723,7 +676,8 @@ function createNewState() {
     hammer: false,
     stockMarket: false,
     trades: [],
-    well: { x: 1, y: 12 },
+    basis: { wheat: { qty: 0, cost: 0 }, carrot: { qty: 0, cost: 0 }, tomato: { qty: 0, cost: 0 }, cotton: { qty: 0, cost: 0 } },
+    well: { x: 14, y: 13 },
   };
 }
 
@@ -765,11 +719,14 @@ function normalize(data) {
     ? data.trades.filter((trade) => trade && CROPS[trade.crop] && (trade.side === "buy" || trade.side === "sell")).slice(0, 40)
     : [];
   if (!data.well || typeof data.well.x !== "number" || typeof data.well.y !== "number") {
-    data.well = { x: 1, y: 12 };
+    data.well = { x: 14, y: 13 };
   }
   data.well.x |= 0;
   data.well.y |= 0;
-  if (!inBounds(data.well.x, data.well.y)) data.well = { x: 1, y: 12 };
+  const oldStart = (data.well.x === 1 && data.well.y === 12) || (data.well.x === 4 && data.well.y === 13);
+  if (!inBounds(data.well.x, data.well.y) || oldStart) {
+    data.well = { x: 14, y: 13 };
+  }
   placePlots(data.plots);
   bindWorld(data);
   const foot = footFrom(data.player.px, data.player.py);
@@ -816,6 +773,7 @@ function normalize(data) {
     data.prices[id] = roundPrice(data.prices[id]);
     data.history[id] = data.history[id].slice(-HISTORY).map(roundPrice);
   });
+  data.basis = replayBasis(data.trades, data.basis, data.goods);
   data.plots.forEach((plot) => {
     plot.tilled = Boolean(plot.tilled);
     plot.watered = Boolean(plot.watered);
@@ -968,13 +926,13 @@ function versus(id) {
   return `${Math.abs(pct)}% below Fair Value`;
 }
 
-const QTY_STEPS = [1, 10, 100, 1000];
+const QTY_STEPS = [100, 1000, 10000];
 const SEED_QTY = [1, 10, 100];
-let tradeQty = 1;
+let tradeQty = 100;
 let seedQty = 1;
 
 function readQty() {
-  return QTY_STEPS.includes(tradeQty) ? tradeQty : 1;
+  return QTY_STEPS.includes(tradeQty) ? tradeQty : 100;
 }
 
 function growthGoal(crop) {
@@ -988,19 +946,6 @@ function hoursLeft(plot) {
 
 function isReady(plot) {
   return Boolean(plot.crop) && plot.progress >= growthGoal(CROPS[plot.crop]);
-}
-
-function adviceFor(id) {
-  const crop = CROPS[id];
-  const price = state.prices[id];
-  const pct = ((price - crop.mean) / crop.mean) * 100;
-  if (pct >= 8) {
-    return `This price is high. Selling now locks in about ${Math.round(price)}g against a Fair Value of ${crop.mean}g.`;
-  }
-  if (pct <= -8) {
-    return `This price is cheap. Buying pays if it drifts back toward the Fair Value of ${crop.mean}g. A harvest is worth holding until then.`;
-  }
-  return `Close to the Fair Value of ${crop.mean}g. A harvest still clears the ${crop.seedPrice}g seed when it sells near here.`;
 }
 
 function stepPrices() {
@@ -1607,17 +1552,26 @@ function startChore(id, x, y) {
 
 function nextAction(plot) {
   if (plot.crop && isReady(plot)) return { id: "harvest", label: `Harvest ${CROPS[plot.crop].name}` };
-  if (!plot.tilled) return { id: "till", label: "Till" };
-  if (!plot.crop) return { id: "plant", label: `Plant ${CROPS[state.selectedSeed].name}` };
-  if (!plot.watered) return { id: "water", label: "Water" };
-  const crop = CROPS[plot.crop];
-  const left = hoursLeft(plot);
-  return {
-    id: "wait",
-    label: `${left} hour${left === 1 ? "" : "s"} left`,
-    disabled: true,
-    detail: `${crop.name} needs ${left} more hour${left === 1 ? "" : "s"}. Watered until harvest.`,
-  };
+  const tool = state.tool;
+  if (tool === "hoe" && !plot.crop && !plot.tilled) return { id: "till", label: "Till" };
+  if (tool === "water" && plot.tilled && !plot.watered) return { id: "water", label: "Water" };
+  if (tool !== "hoe" && tool !== "water" && plot.tilled && !plot.crop) {
+    return { id: "plant", label: `Plant ${CROPS[state.selectedSeed].name}` };
+  }
+  if (plot.crop) {
+    const left = hoursLeft(plot);
+    const hint = plot.watered ? " Watered until harvest." : " Select the can to water it.";
+    return {
+      id: "wait",
+      label: `${left} hour${left === 1 ? "" : "s"} left`,
+      disabled: true,
+      detail: `${CROPS[plot.crop].name} needs ${left} more hour${left === 1 ? "" : "s"}.${hint}`,
+    };
+  }
+  if (!plot.tilled) {
+    return { id: "wait", label: "Hoe", disabled: true, detail: "Select the hoe to till this plot." };
+  }
+  return { id: "wait", label: "Seed", disabled: true, detail: "Select a seed to plant." };
 }
 
 function offerHere() {
@@ -1649,8 +1603,6 @@ function offerHere() {
   if (plot) return { kind: "plot", x: plot.x, y: plot.y, action: nextAction(plotAt(plot.x, plot.y)) };
   const shop = nearbyRole(["shop"]);
   if (shop) return { kind: "shop", x: shop.x, y: shop.y, action: { id: "shop", label: "Trailer Supply" } };
-  const stall = nearbyRole(["stall"]);
-  if (stall) return { kind: "stall", x: stall.x, y: stall.y, action: { id: "market", label: "Market" } };
   const well = nearbyRole(["well"]);
   if (well) {
     const full = state.water >= CAN_MAX;
@@ -1919,8 +1871,7 @@ function clickTile(x, y, event) {
   const role = roleAt(x, y);
   if (offer && !offer.action.disabled) {
     const hit = (offer.kind === "plot" && offer.x === x && offer.y === y)
-      || (offer.kind === "shop" && role === "shop")
-      || (offer.kind === "stall" && role === "stall");
+      || (offer.kind === "shop" && role === "shop");
     if (hit) {
       doOffer();
       return;
@@ -2220,6 +2171,22 @@ function selectSeed(id) {
   if (!CROPS[id]) return;
   state.selectedSeed = id;
   state.marketCrop = id;
+  state.tool = "seed";
+}
+
+function useToolKey(code) {
+  const pick = TOOL_KEYS[code];
+  if (!pick) return false;
+  if (pick.tool === "seed") {
+    selectSeed(pick.seed);
+    setStatus(`Next planting is ${CROPS[pick.seed].name}.`);
+  } else {
+    state.tool = pick.tool;
+    setStatus(pick.tool === "hoe" ? "Hoe selected." : "Watering can selected.");
+  }
+  save();
+  paint();
+  return true;
 }
 
 function buySeed(id, qty = 1) {
@@ -2239,6 +2206,68 @@ function buySeed(id, qty = 1) {
   setStatus(`Bought ${count} ${crop.singular} seed${count === 1 ? "" : "s"}. Walk onto tilled soil to plant.`);
   save();
   paint();
+}
+
+function emptyBasis() {
+  const basis = {};
+  ORDER.forEach((id) => {
+    basis[id] = { qty: 0, cost: 0 };
+  });
+  return basis;
+}
+
+function replayBasis(trades, saved, goods) {
+  const fresh = !saved || typeof saved !== "object";
+  const basis = emptyBasis();
+  if (fresh) {
+    [...trades].reverse().forEach((trade) => {
+      const book = basis[trade.crop];
+      if (!book) return;
+      if (trade.side === "buy") {
+        book.qty += trade.qty;
+        book.cost += trade.gold;
+      } else if (book.qty > 0) {
+        const take = Math.min(trade.qty, book.qty);
+        const avg = book.cost / book.qty;
+        book.qty -= take;
+        book.cost -= avg * take;
+      }
+    });
+  } else {
+    ORDER.forEach((id) => {
+      const book = saved[id] || {};
+      basis[id].qty = Math.max(0, Math.round(book.qty) || 0);
+      basis[id].cost = Math.max(0, Math.round(book.cost) || 0);
+    });
+  }
+  ORDER.forEach((id) => {
+    const book = basis[id];
+    const held = Math.max(0, goods[id] | 0);
+    if (book.qty > held) {
+      const avg = book.qty ? book.cost / book.qty : 0;
+      book.qty = held;
+      book.cost = avg * held;
+    }
+    book.qty = Math.max(0, Math.round(book.qty));
+    book.cost = book.qty ? Math.max(0, Math.round(book.cost)) : 0;
+  });
+  return basis;
+}
+
+function addBasis(id, qty, cost) {
+  const book = state.basis[id];
+  book.qty += qty;
+  book.cost += cost;
+}
+
+function releaseBasis(id, qty) {
+  const book = state.basis[id];
+  const take = Math.min(qty, book.qty);
+  if (take <= 0) return;
+  const avg = book.cost / book.qty;
+  book.qty -= take;
+  book.cost = Math.max(0, Math.round(book.cost - avg * take));
+  if (book.qty === 0) book.cost = 0;
 }
 
 function recordTrade(side, id, qty, gold) {
@@ -2293,6 +2322,7 @@ function buyGoods() {
   }
   state.gold -= cost;
   state.goods[id] += qty;
+  addBasis(id, qty, cost);
   recordTrade("buy", id, qty, cost);
   log(`Bought ${qty} ${noun(crop, qty)} for ${cost}g.`);
   save();
@@ -2317,6 +2347,7 @@ function sellGoods(all) {
     return;
   }
   const payout = Math.round(qty * state.prices[id]);
+  releaseBasis(id, qty);
   state.goods[id] -= qty;
   state.gold += payout;
   if (marketDesk === "exchange") recordTrade("sell", id, qty, payout);
@@ -2520,10 +2551,10 @@ function paintMap() {
       const ready = isReady(plot);
       const ratio = plot.progress / growthGoal(crop);
       kind = ready ? `${plot.crop}Ready` : ratio >= 0.45 ? plot.crop : "sprout";
-      html = kind === "cottonReady"
-        ? `<img class="crop-art" src="art/cotton-ready.png?v=1" alt="">`
+      html = READY_ART[kind]
+        ? `<img class="crop-art" src="${READY_ART[kind]}" alt="">`
         : (PLANTS[kind] || SPROUT);
-      if (kind === "cottonReady") kind = "cottonReady-png";
+      if (READY_ART[kind]) kind = `${kind}-png`;
       const hours = hoursLeft(plot);
       label.textContent = "";
       tile.setAttribute(
@@ -2541,11 +2572,7 @@ function paintMap() {
 
 function paintPlayer() {
   const player = $("player");
-  const pose = state.player.facing === "up" ? "back" : "front";
-  if (player.dataset.pose !== pose) {
-    player.dataset.pose = pose;
-    player.innerHTML = pose === "back" ? FARMER_BACK : FARMER;
-  }
+  if (!player.querySelector("img")) player.innerHTML = FARMER;
   player.dataset.facing = state.player.facing;
   player.classList.toggle("walking", walking && !acting);
   player.classList.toggle("acting", Boolean(acting));
@@ -2730,6 +2757,19 @@ function paint() {
     drop.classList.toggle("full", index < state.water);
   });
   $("net").textContent = `Net worth ${formatGold(netWorth())}`;
+  const toolBar = $("tool-bar");
+  toolBar.hidden = state.place === "city";
+  toolBar.querySelectorAll("[data-tool]").forEach((button) => {
+    const tool = button.dataset.tool;
+    const on = tool === "seed"
+      ? state.tool === "seed" && button.dataset.seed === state.selectedSeed
+      : state.tool === tool;
+    button.classList.toggle("selected", on);
+    button.setAttribute("aria-pressed", on ? "true" : "false");
+  });
+  toolBar.querySelectorAll("[data-seed-count]").forEach((node) => {
+    node.textContent = String(state.seeds[node.dataset.seedCount] || 0);
+  });
   const landMeta = $("land-meta");
   const buyLand = $("buy-plot");
   const plotsOwned = ownedCount();
@@ -2828,9 +2868,8 @@ function paint() {
   const allPayout = Math.round(owned * state.prices[cropId]);
   const stock = marketDesk === "exchange";
   $("market-title").textContent = stock ? "Stock Market" : "Market";
-  $("market-blurb").textContent = stock
-    ? "Q and E switch crops. Prices step every hour, then ease back toward the dashed line."
-    : "Tab closes this. Q and E switch crops.";
+  $("market-blurb").hidden = stock;
+  if (!stock) $("market-blurb").textContent = "Tab closes this. Q and E switch crops.";
   $("trade-name").textContent = crop.name;
   const priceNode = $("trade-price");
   priceNode.textContent = `${state.prices[cropId]}g`;
@@ -2838,9 +2877,18 @@ function paint() {
   $("trade-meta").textContent = stock
     ? `${versus(cropId)} · seed ${crop.seedPrice}g · you hold ${owned}`
     : `Seed ${crop.seedPrice}g · you hold ${owned}`;
-  const advice = $("trade-advice");
-  advice.hidden = !stock;
-  if (stock) advice.textContent = adviceFor(cropId);
+  const pnl = $("trade-pnl");
+  pnl.hidden = !stock;
+  if (stock) {
+    const book = state.basis[cropId];
+    if (!book || book.qty < 1) {
+      pnl.innerHTML = `<span>Avg cost —</span><b>No open buys</b>`;
+    } else {
+      const avg = Math.round(book.cost / book.qty);
+      const open = Math.round(state.prices[cropId] * book.qty - book.cost);
+      pnl.innerHTML = `<span>Avg cost ${avg}g · ${book.qty} bought</span><b class="${open > 0 ? "up" : open < 0 ? "down" : ""}">${open > 0 ? "+" : ""}${formatGold(open)}</b>`;
+    }
+  }
   $("legend-usual").hidden = !stock;
   const showBook = stock && marketView === "trades";
   $("market-tabs").hidden = !stock;
@@ -2901,49 +2949,25 @@ function fillTile(tile, x, y) {
     if (x === FIELD.x + FIELD.w - 1) edges.push("edge-e");
     tile.className = `tile field ${edges.join(" ")}`;
     tile.innerHTML = `<span class="crop-icon"></span><span class="plot-label"></span>`;
-  } else if (role === "stall") {
-    tile.innerHTML = `<span class="prop stall-prop">${STALL}</span>`;
-    tile.setAttribute("aria-label", "Market stall");
-  } else if (role === "shop" && y === 10) {
-    tile.innerHTML = `<span class="prop shop-prop">${SHOP}</span>`;
+  } else if (role === "shop" && y === 6) {
+    tile.innerHTML = `<span class="prop shop-prop"><img src="art/stall.png?v=1" alt=""></span>`;
     tile.setAttribute("aria-label", "Trailer Supply");
   } else if (role === "shop") {
     tile.setAttribute("aria-label", "Trailer Supply");
   } else if (role === "bed") {
-    tile.innerHTML = `<span class="prop house-prop">${HOUSE}</span>`;
+    tile.innerHTML = `<span class="prop house-prop"><img src="art/house.png?v=1" alt=""></span>`;
     tile.setAttribute("aria-label", "Cottage door");
   } else if (role === "house") {
     tile.setAttribute("aria-label", "Cottage");
   } else if (role === "tree") {
-    tile.innerHTML = `<span class="prop tree-prop">${TREE}</span>`;
+    tile.innerHTML = `<span class="prop tree-prop"><img src="art/tree.png?v=1" alt=""></span>`;
     tile.setAttribute("aria-label", "Tree");
   } else if (role === "well") {
-    tile.innerHTML = `<span class="prop">${WELL}</span>`;
+    tile.innerHTML = `<span class="prop well-prop"><img src="art/well.png?v=1" alt=""></span>`;
     tile.setAttribute("aria-label", "Well");
   } else if (role === "grass") {
-    const meadow = y === 0 || y === MAP_ROWS - 1 || x === 0 || x === MAP_COLS - 1;
-    tile.classList.add(meadow ? "meadow" : "yard");
-    const shades = meadow
-      ? ["#5f9e42", "#6aaa4c", "#58963c", "#74b456", "#4f8a34", "#67a246"]
-      : ["#8fba5e", "#9dc56a", "#a8cc74", "#86b456", "#7eae56", "#b4d484", "#93c066", "#78a852"];
-    const darks = ["#3f7a30", "#5a9434", "#2f6a28", "#4f8a38"];
-    const lights = ["#d5e9a4", "#eef6d4", "#c6e08a", "#f7fbe8"];
-    const mix = (x * 13 + y * 17 + x * y) >>> 0;
-    tile.style.setProperty("--grass", shades[mix % shades.length]);
-    tile.style.setProperty("--s1x", `${8 + (mix % 72)}%`);
-    tile.style.setProperty("--s1y", `${10 + ((mix >> 3) % 68)}%`);
-    tile.style.setProperty("--s2x", `${12 + ((mix >> 6) % 70)}%`);
-    tile.style.setProperty("--s2y", `${18 + ((mix >> 9) % 64)}%`);
-    tile.style.setProperty("--s3x", `${6 + ((mix >> 4) % 78)}%`);
-    tile.style.setProperty("--s3y", `${8 + ((mix >> 8) % 74)}%`);
-    tile.style.setProperty("--s1c", darks[mix % darks.length]);
-    tile.style.setProperty("--s2c", lights[(mix >> 2) % lights.length]);
-    const decor = (x * 7 + y * 11) % 14;
-    if (decor < GROUND.length) {
-      tile.style.setProperty("--gx", `${4 + ((x * 5 + y) % 24)}px`);
-      tile.style.setProperty("--gy", `${3 + ((x + y * 3) % 20)}px`);
-      tile.insertAdjacentHTML("beforeend", `<span class="prop ground-prop">${GROUND[decor]}</span>`);
-    }
+    const edge = y === 0 || y === MAP_ROWS - 1 || x === 0 || x === MAP_COLS - 1;
+    tile.classList.add(edge ? "meadow" : "yard");
   } else if (role === "path") {
     tile.classList.add("worn");
   }
@@ -3082,6 +3106,14 @@ function bind() {
   });
   $("menu-new").addEventListener("click", startNewGame);
 
+  $("tool-bar").addEventListener("click", (event) => {
+    const button = event.target.closest("[data-tool]");
+    if (!button) return;
+    if (button.dataset.tool === "seed") selectSeed(button.dataset.seed);
+    else state.tool = button.dataset.tool;
+    save();
+    paint();
+  });
   $("farm-grid").addEventListener("click", (event) => {
     const tile = event.target.closest(".tile");
     if (!tile) return;
@@ -3193,12 +3225,7 @@ function bind() {
         if (monsangoOpen) closeMonsango();
         if (hqOpen) closeHq();
       }
-      const seedKey = SEED_KEYS[event.code];
-      if (seedKey) {
-        selectSeed(seedKey);
-        save();
-        paint();
-      }
+      if (useToolKey(event.code)) return;
       return;
     }
     if (marketOpen) {
@@ -3227,13 +3254,7 @@ function bind() {
       doOffer();
       return;
     }
-    const seed = SEED_KEYS[event.code];
-    if (seed) {
-      selectSeed(seed);
-      setStatus(`Next planting is ${CROPS[seed].name}.`);
-      save();
-      paint();
-    }
+    if (useToolKey(event.code)) return;
   });
   window.addEventListener("keyup", (event) => {
     const dir = DIR_FROM_CODE[event.code];

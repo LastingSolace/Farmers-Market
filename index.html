@@ -8,14 +8,29 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="styles.css?v=hqland" />
+  <link rel="stylesheet" href="styles.css?v=version" />
 </head>
 <body>
   <div id="menu" class="menu-overlay">
+    <div class="menu-scene" aria-hidden="true">
+      <img class="menu-tree menu-tree-l" src="art/tree.png?v=1" alt="">
+      <img class="menu-tree menu-tree-r" src="art/tree.png?v=1" alt="">
+      <img class="menu-stall" src="art/stall.png?v=1" alt="">
+      <img class="menu-house" src="art/house.png?v=1" alt="">
+      <img class="menu-farmer" src="art/farmer.png?v=1" alt="">
+    </div>
     <div class="menu-card">
       <h1>Farmers Market</h1>
+      <div class="menu-crops" aria-hidden="true">
+        <img src="art/wheat-ready.png?v=1" alt="">
+        <img src="art/carrot-ready.png?v=1" alt="">
+        <img src="art/tomato-ready.png?v=1" alt="">
+        <img src="art/cotton-ready.png?v=1" alt="">
+      </div>
+      <p class="menu-line">Grow the field. Trade the town.</p>
       <button type="button" id="menu-continue">Continue</button>
       <button type="button" id="menu-new">New game</button>
+      <p class="menu-version">Version 0.1.0a</p>
     </div>
   </div>
   <div class="shell">
@@ -71,6 +86,51 @@
           </button>
         </div>
         <div id="build-callout" class="build-callout" hidden>Build mode</div>
+        <div id="tool-bar" class="tool-bar" hidden>
+          <button type="button" data-tool="hoe" title="Hoe" aria-label="Hoe, key 1">
+            <i class="tool-key">1</i>
+            <svg viewBox="0 0 16 16" aria-hidden="true">
+              <rect x="8" y="5" width="2" height="10" fill="#8b5a32"/>
+              <rect x="7" y="4" width="2" height="2" fill="#6b3e24"/>
+              <rect x="2" y="2" width="9" height="3" fill="#9aa3aa"/>
+              <rect x="2" y="2" width="9" height="1" fill="#d5dde2"/>
+              <rect x="1" y="3" width="2" height="3" fill="#5c656c"/>
+            </svg>
+          </button>
+          <button type="button" data-tool="water" title="Watering can" aria-label="Watering can, key 2">
+            <i class="tool-key">2</i>
+            <svg viewBox="0 0 16 16" aria-hidden="true">
+              <rect x="1" y="6" width="2" height="5" fill="#4a7fa8"/>
+              <rect x="2" y="5" width="2" height="2" fill="#4a7fa8"/>
+              <rect x="3" y="4" width="8" height="2" fill="#6b8ea8"/>
+              <rect x="4" y="6" width="8" height="8" fill="#3d8ec4"/>
+              <rect x="5" y="7" width="6" height="6" fill="#d7f3fb"/>
+              <rect x="5" y="10" width="6" height="3" fill="#7ec8ea"/>
+              <rect x="12" y="6" width="3" height="2" fill="#8ec4e4"/>
+              <rect x="14" y="4" width="2" height="3" fill="#8ec4e4"/>
+            </svg>
+          </button>
+          <button type="button" data-tool="seed" data-seed="wheat" title="Wheat" aria-label="Wheat seeds, key 3">
+            <i class="tool-key">3</i>
+            <img src="art/wheat-ready.png?v=1" alt="">
+            <b data-seed-count="wheat">0</b>
+          </button>
+          <button type="button" data-tool="seed" data-seed="carrot" title="Carrots" aria-label="Carrot seeds, key 4">
+            <i class="tool-key">4</i>
+            <img src="art/carrot-ready.png?v=1" alt="">
+            <b data-seed-count="carrot">0</b>
+          </button>
+          <button type="button" data-tool="seed" data-seed="tomato" title="Tomatoes" aria-label="Tomato seeds, key 5">
+            <i class="tool-key">5</i>
+            <img src="art/tomato-ready.png?v=1" alt="">
+            <b data-seed-count="tomato">0</b>
+          </button>
+          <button type="button" data-tool="seed" data-seed="cotton" title="Cotton" aria-label="Cotton seeds, key 6">
+            <i class="tool-key">6</i>
+            <img src="art/cotton-ready.png?v=1" alt="">
+            <b data-seed-count="cotton">0</b>
+          </button>
+        </div>
         </div>
     </section>
   </div>
@@ -101,12 +161,11 @@
           <h2 id="trade-name">Wheat</h2>
           <p id="trade-price" class="trade-price">0g</p>
           <p id="trade-meta" class="muted"></p>
-          <p id="trade-advice" class="advice"></p>
+          <p id="trade-pnl" class="trade-pnl" hidden></p>
           <div class="qty-row" id="qty-picks">
-            <button type="button" data-qty="1">1</button>
-            <button type="button" data-qty="10">10</button>
             <button type="button" data-qty="100">100</button>
-            <button type="button" data-qty="1000">1000</button>
+            <button type="button" data-qty="1000">1,000</button>
+            <button type="button" data-qty="10000">10,000</button>
           </div>
           <div class="trade-actions">
             <button type="button" id="buy">Buy</button>
@@ -213,6 +272,6 @@
       <div id="monsango-seeds"></div>
     </div>
   </div>
-  <script src="game.js?v=handcost"></script>
+  <script src="game.js?v=waterbare"></script>
 </body>
 </html>
