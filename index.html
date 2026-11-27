@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Farmers Market</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect fill='%2324382c' width='32' height='32' rx='7'/%3E%3Cpath d='M16 27c-5-7-5-12 0-18 5 6 5 11 0 18z' fill='%23d4652f'/%3E%3Cpath d='M16 11c2-4 7-5 9-3-4 1-6 3-9 3z' fill='%237da84a'/%3E%3C/svg%3E" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css?v=hqland" />
+</head>
+<body>
+  <div id="menu" class="menu-overlay">
+    <div class="menu-card">
+      <h1>Farmers Market</h1>
+      <button type="button" id="menu-continue">Continue</button>
+      <button type="button" id="menu-new">New game</button>
+    </div>
+  </div>
+  <div class="shell">
+    <header class="top">
+      <div class="brand">
+        <h1>Farmers Market</h1>
+      </div>
+      <div class="top-tools">
+        <button type="button" id="open-menu" class="tab">Menu</button>
+      </div>
+    </header>
+
+    <section id="farm-main" class="farm-only" aria-label="Farm">
+      <div class="farm-scroll">
+        <div id="farm-scene" class="farm-scene">
+          <div id="farm-grid" class="farm-grid" role="application" aria-label="Farm. Walk with WASD or click the ground. Step onto a plot and press Space for the next chore."></div>
+        </div>
+        <div class="top-bar">
+          <div class="clock">
+            <div>
+              <div id="when">Day 1 · 6:00 AM</div>
+              <div id="phase">Daylight</div>
+            </div>
+          </div>
+          <div class="can-pill" id="can-pill" data-water="6" aria-label="Watering can, 6 of 6 plots">
+            <svg class="can-svg" viewBox="0 0 16 16" aria-hidden="true">
+              <rect x="1" y="6" width="2" height="5" fill="#4a7fa8"/>
+              <rect x="2" y="5" width="2" height="2" fill="#4a7fa8"/>
+              <rect x="3" y="4" width="8" height="2" fill="#6b8ea8"/>
+              <rect x="4" y="6" width="8" height="8" fill="#3d8ec4"/>
+              <rect x="5" y="7" width="6" height="6" fill="#d7f3fb"/>
+              <rect x="5" y="10" width="6" height="3" fill="#7ec8ea"/>
+              <rect x="12" y="6" width="3" height="2" fill="#8ec4e4"/>
+              <rect x="14" y="4" width="2" height="3" fill="#8ec4e4"/>
+            </svg>
+            <span class="can-drops" id="can-drops">
+              <i class="can-drop full"></i><i class="can-drop full"></i><i class="can-drop full"></i><i class="can-drop full"></i><i class="can-drop full"></i><i class="can-drop full"></i>
+            </span>
+            <span id="can-count">6</span>
+          </div>
+          <div class="gold-pill">
+            <strong><i class="coin" aria-hidden="true"></i><span id="gold">80g</span></strong>
+            <span id="net" title="Gold, plus harvested crops at the current market price.">Net worth 80g</span>
+          </div>
+          <button type="button" id="hammer" class="hammer" hidden title="Rearrange plots and the well">
+            <svg viewBox="0 0 16 16" aria-hidden="true">
+              <rect x="7" y="7" width="2" height="8" fill="#8b5a32"/>
+              <rect x="2" y="2" width="12" height="5" fill="#6e7378"/>
+              <rect x="2" y="2" width="12" height="2" fill="#b7bcc1"/>
+              <rect x="1" y="3" width="2" height="3" fill="#4a4e52"/>
+              <rect x="13" y="3" width="2" height="3" fill="#4a4e52"/>
+            </svg>
+          </button>
+        </div>
+        <div id="build-callout" class="build-callout" hidden>Build mode</div>
+        </div>
+    </section>
+  </div>
+  <div id="market" class="market-overlay" hidden>
+    <div class="market-card" role="dialog" aria-labelledby="market-title">
+      <div class="shop-head">
+        <h2 id="market-title">Market</h2>
+        <button type="button" id="market-close">Close</button>
+      </div>
+      <p class="muted" id="market-blurb">Tab closes this. Q and E switch crops.</p>
+      <div class="market-tabs" id="market-tabs" hidden>
+        <button type="button" id="market-tab-prices">Prices</button>
+        <button type="button" id="market-tab-trades">History</button>
+      </div>
+      <div class="market-layout" id="market-prices">
+        <section id="market-main" class="market-board" aria-label="Market">
+          <div id="ticker" class="ticker"></div>
+          <div class="chart-wrap">
+            <canvas id="chart" aria-label="Price chart"></canvas>
+            <div id="chart-tip" class="chart-tip" hidden></div>
+          </div>
+          <p class="legend" id="legend">
+            <span class="item"><i class="swatch"></i> Price</span>
+            <span class="item" id="legend-usual"><i class="swatch dashed"></i> Fair Value</span>
+          </p>
+        </section>
+        <aside id="market-side" class="side">
+          <h2 id="trade-name">Wheat</h2>
+          <p id="trade-price" class="trade-price">0g</p>
+          <p id="trade-meta" class="muted"></p>
+          <p id="trade-advice" class="advice"></p>
+          <div class="qty-row" id="qty-picks">
+            <button type="button" data-qty="1">1</button>
+            <button type="button" data-qty="10">10</button>
+            <button type="button" data-qty="100">100</button>
+            <button type="button" data-qty="1000">1000</button>
+          </div>
+          <div class="trade-actions">
+            <button type="button" id="buy">Buy</button>
+            <button type="button" id="sell">Sell</button>
+            <button type="button" id="sell-all">Sell all</button>
+          </div>
+        </aside>
+      </div>
+      <section id="market-trades" class="trade-book" hidden>
+        <div class="trade-summary">
+          <span>Bought <b id="trade-bought">0g</b></span>
+          <span>Sold <b id="trade-sold">0g</b></span>
+          <span>Net <b id="trade-net">0g</b></span>
+        </div>
+        <div id="trade-list"></div>
+        <p id="trade-empty" class="muted">No trades yet. Buys and sells will show up here.</p>
+      </section>
+    </div>
+  </div>
+  <div id="shop" class="shop-overlay" hidden>
+    <div class="shop-card" role="dialog" aria-labelledby="shop-title">
+      <div class="shop-head">
+        <h2 id="shop-title">Trailer Supply</h2>
+        <button type="button" id="shop-close">Close</button>
+      </div>
+      <p class="muted">Buy a seed, add a plot, or pick up a sprinkler, a hammer, or a farmhand. Keys 1 to 4 pick a seed.</p>
+      <div class="land-offer">
+        <div class="seed-copy">
+          <strong>Add a plot</strong>
+          <span class="seed-meta" id="land-meta"></span>
+        </div>
+        <button type="button" id="buy-plot">100g</button>
+      </div>
+      <div class="land-offer">
+        <div class="seed-copy">
+          <strong>Sprinkler</strong>
+          <span class="seed-meta" id="sprinkler-meta"></span>
+        </div>
+        <button type="button" id="buy-sprinkler">250g</button>
+      </div>
+      <div class="land-offer">
+        <div class="seed-copy">
+          <strong>Hammer</strong>
+          <span class="seed-meta" id="hammer-meta"></span>
+        </div>
+        <button type="button" id="buy-hammer">200g</button>
+      </div>
+      <div class="land-offer">
+        <div class="seed-copy">
+          <strong>Farmhand</strong>
+          <span class="seed-meta" id="farmhand-meta"></span>
+        </div>
+        <button type="button" id="hire-farmhand">1000g</button>
+      </div>
+      <div id="seeds"></div>
+    </div>
+  </div>
+  <div id="hq" class="shop-overlay" hidden>
+    <div class="shop-card hq-card" role="dialog" aria-labelledby="hq-title">
+      <div class="shop-head">
+        <h2 id="hq-title">Farmer's HQ</h2>
+        <button type="button" id="hq-close">Close</button>
+      </div>
+      <p class="muted">Hire farmhands and see how the field is doing.</p>
+      <div class="market-tabs" id="hq-tabs">
+        <button type="button" id="hq-tab-active">Active</button>
+        <button type="button" id="hq-tab-history">History</button>
+      </div>
+      <div id="hq-active">
+        <h3>Field</h3>
+        <div id="hq-field" class="hq-stats"></div>
+        <h3>Crops</h3>
+        <div id="hq-live" class="hq-stats"></div>
+        <h3>Crew</h3>
+        <div class="land-offer hq-crew">
+          <div class="seed-copy">
+            <strong id="hq-count">0 farmhands</strong>
+            <span class="seed-meta" id="hq-hire-meta"></span>
+          </div>
+          <div class="hq-actions">
+            <button type="button" id="hq-fire">Fire</button>
+            <button type="button" id="hq-hire">Hire 1000g</button>
+          </div>
+        </div>
+      </div>
+      <div id="hq-history" hidden>
+        <div id="hq-yield" class="hq-stats"></div>
+        <p id="hq-history-empty" class="muted">Nothing harvested yet.</p>
+      </div>
+    </div>
+  </div>
+  <div id="monsango" class="shop-overlay" hidden>
+    <div class="shop-card" role="dialog" aria-labelledby="monsango-title">
+      <div class="shop-head">
+        <h2 id="monsango-title">Monsango</h2>
+        <button type="button" id="monsango-close">Close</button>
+      </div>
+      <p class="muted">Seeds by the sack. Pick 1, 10, or 100.</p>
+      <div class="qty-row" id="seed-qty">
+        <button type="button" data-qty="1">1</button>
+        <button type="button" data-qty="10">10</button>
+        <button type="button" data-qty="100">100</button>
+      </div>
+      <div id="monsango-seeds"></div>
+    </div>
+  </div>
+  <script src="game.js?v=handcost"></script>
+</body>
+</html>
