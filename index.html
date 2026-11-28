@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="styles.css?v=deskdark" />
+  <link rel="stylesheet" href="styles.css?v=handcan" />
 </head>
 <body>
   <div id="menu" class="menu-overlay">
@@ -30,7 +30,7 @@
       <p class="menu-line">Grow the field. Trade the town.</p>
       <button type="button" id="menu-continue">Continue</button>
       <button type="button" id="menu-new">New game</button>
-      <p class="menu-version">Version 0.1.0a</p>
+      <p class="menu-version">Version 0.1.2a</p>
     </div>
   </div>
   <div class="shell">
@@ -48,14 +48,12 @@
         <div id="farm-scene" class="farm-scene">
           <div id="farm-grid" class="farm-grid" role="application" aria-label="Farm. Walk with WASD or click the ground. Step onto a plot and press Space for the next chore."></div>
           <div id="weather" class="weather" hidden></div>
+          <div id="crop-tip" class="crop-tip" hidden></div>
         </div>
         <div class="top-bar">
-          <div class="clock">
-            <span id="sky-mark" class="sky-mark" title="Clear" aria-label="Clear"></span>
-            <div>
-              <div id="when">Day 1 · 6:00 AM</div>
-              <div id="phase">Daylight</div>
-            </div>
+          <div class="gold-pill">
+            <strong><i class="coin" aria-hidden="true"></i><span id="gold">80g</span></strong>
+            <span id="net" title="Gold, plus harvested crops at the current market price.">Net worth 80g</span>
           </div>
           <div class="can-pill" id="can-pill" data-water="6" aria-label="Watering can, 6 of 6 plots">
             <svg class="can-svg" viewBox="0 0 16 16" aria-hidden="true">
@@ -73,9 +71,12 @@
             </span>
             <span id="can-count">6</span>
           </div>
-          <div class="gold-pill">
-            <strong><i class="coin" aria-hidden="true"></i><span id="gold">80g</span></strong>
-            <span id="net" title="Gold, plus harvested crops at the current market price.">Net worth 80g</span>
+          <div class="clock">
+            <span id="sky-mark" class="sky-mark" title="Clear" aria-label="Clear"></span>
+            <div>
+              <div id="when">Day 1 · 6:00 AM</div>
+              <div id="phase">Daylight</div>
+            </div>
           </div>
           <button type="button" id="hammer" class="hammer" hidden title="Rearrange plots and the well">
             <svg viewBox="0 0 16 16" aria-hidden="true">
@@ -155,7 +156,7 @@
       </div>
       <div class="market-layout stall-list" id="market-prices">
         <article class="stall" data-crop="wheat">
-          <header><h2 class="trade-name">Wheat</h2><p class="trade-price">0g</p></header>
+          <header><h2 class="trade-name">Wheat</h2><p class="stall-quote"><span class="fmv"></span><span class="trade-price">0g</span></p></header>
           <p class="muted trade-meta"></p>
           <div class="trade-actions">
             <button type="button" class="sell-btn" data-crop="wheat">Sell 1</button>
@@ -163,7 +164,7 @@
           </div>
         </article>
         <article class="stall" data-crop="carrot">
-          <header><h2 class="trade-name">Carrots</h2><p class="trade-price">0g</p></header>
+          <header><h2 class="trade-name">Carrots</h2><p class="stall-quote"><span class="fmv"></span><span class="trade-price">0g</span></p></header>
           <p class="muted trade-meta"></p>
           <div class="trade-actions">
             <button type="button" class="sell-btn" data-crop="carrot">Sell 1</button>
@@ -171,7 +172,7 @@
           </div>
         </article>
         <article class="stall" data-crop="tomato">
-          <header><h2 class="trade-name">Tomatoes</h2><p class="trade-price">0g</p></header>
+          <header><h2 class="trade-name">Tomatoes</h2><p class="stall-quote"><span class="fmv"></span><span class="trade-price">0g</span></p></header>
           <p class="muted trade-meta"></p>
           <div class="trade-actions">
             <button type="button" class="sell-btn" data-crop="tomato">Sell 1</button>
@@ -179,7 +180,7 @@
           </div>
         </article>
         <article class="stall" data-crop="cotton">
-          <header><h2 class="trade-name">Cotton</h2><p class="trade-price">0g</p></header>
+          <header><h2 class="trade-name">Cotton</h2><p class="stall-quote"><span class="fmv"></span><span class="trade-price">0g</span></p></header>
           <p class="muted trade-meta"></p>
           <div class="trade-actions">
             <button type="button" class="sell-btn" data-crop="cotton">Sell 1</button>
@@ -328,19 +329,19 @@
   <div id="wardrobe" class="shop-overlay" hidden>
     <div class="shop-card wardrobe-card" role="dialog" aria-labelledby="wardrobe-title">
       <div class="shop-head">
-        <h2 id="wardrobe-title">Cottage</h2>
+        <h2 id="wardrobe-title">Home</h2>
         <button type="button" id="wardrobe-close">Close</button>
       </div>
-      <p class="muted">Pick who you are on the farm.</p>
+      <p class="muted">Choose your appearance.</p>
       <h3>Character</h3>
       <div id="wardrobe-looks" class="look-row">
         <button type="button" class="look-pick" data-look="overalls">
           <img src="art/farmer.png?v=1" alt="">
-          <span>Overalls</span>
+          <span>Jack</span>
         </button>
         <button type="button" class="look-pick" data-look="bright">
           <img src="art/farmer-2.png?v=1" alt="">
-          <span>Blue dress</span>
+          <span>Jill</span>
         </button>
       </div>
     </div>
@@ -432,6 +433,6 @@
       <div id="monsango-seeds"></div>
     </div>
   </div>
-  <script src="game.js?v=deskdark"></script>
+  <script src="game.js?v=handcan"></script>
 </body>
 </html>
