@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="styles.css?v=version" />
+  <link rel="stylesheet" href="styles.css?v=deskdark" />
 </head>
 <body>
   <div id="menu" class="menu-overlay">
@@ -47,9 +47,11 @@
       <div class="farm-scroll">
         <div id="farm-scene" class="farm-scene">
           <div id="farm-grid" class="farm-grid" role="application" aria-label="Farm. Walk with WASD or click the ground. Step onto a plot and press Space for the next chore."></div>
+          <div id="weather" class="weather" hidden></div>
         </div>
         <div class="top-bar">
           <div class="clock">
+            <span id="sky-mark" class="sky-mark" title="Clear" aria-label="Clear"></span>
             <div>
               <div id="when">Day 1 · 6:00 AM</div>
               <div id="phase">Daylight</div>
@@ -86,6 +88,12 @@
           </button>
         </div>
         <div id="build-callout" class="build-callout" hidden>Build mode</div>
+        <aside id="quest" class="quest-card" hidden>
+          <div class="quest-top"><span>Quest</span><b id="quest-step"></b></div>
+          <strong id="quest-title"></strong>
+          <p id="quest-text"></p>
+          <span id="quest-reward"></span>
+        </aside>
         <div id="tool-bar" class="tool-bar" hidden>
           <button type="button" data-tool="hoe" title="Hoe" aria-label="Hoe, key 1">
             <i class="tool-key">1</i>
@@ -137,51 +145,138 @@
   <div id="market" class="market-overlay" hidden>
     <div class="market-card" role="dialog" aria-labelledby="market-title">
       <div class="shop-head">
-        <h2 id="market-title">Market</h2>
+        <h2 id="market-title" class="market-title">Market</h2>
         <button type="button" id="market-close">Close</button>
       </div>
-      <p class="muted" id="market-blurb">Tab closes this. Q and E switch crops.</p>
-      <div class="market-tabs" id="market-tabs" hidden>
+      <p class="muted market-blurb" id="market-blurb">Tab closes this.</p>
+      <div class="market-tabs" id="market-tabs">
         <button type="button" id="market-tab-prices">Prices</button>
-        <button type="button" id="market-tab-trades">History</button>
+        <button type="button" id="market-tab-quests">Quests</button>
       </div>
-      <div class="market-layout" id="market-prices">
-        <section id="market-main" class="market-board" aria-label="Market">
-          <div id="ticker" class="ticker"></div>
-          <div class="chart-wrap">
-            <canvas id="chart" aria-label="Price chart"></canvas>
-            <div id="chart-tip" class="chart-tip" hidden></div>
-          </div>
-          <p class="legend" id="legend">
-            <span class="item"><i class="swatch"></i> Price</span>
-            <span class="item" id="legend-usual"><i class="swatch dashed"></i> Fair Value</span>
-          </p>
-        </section>
-        <aside id="market-side" class="side">
-          <h2 id="trade-name">Wheat</h2>
-          <p id="trade-price" class="trade-price">0g</p>
-          <p id="trade-meta" class="muted"></p>
-          <p id="trade-pnl" class="trade-pnl" hidden></p>
-          <div class="qty-row" id="qty-picks">
-            <button type="button" data-qty="100">100</button>
-            <button type="button" data-qty="1000">1,000</button>
-            <button type="button" data-qty="10000">10,000</button>
-          </div>
+      <div class="market-layout stall-list" id="market-prices">
+        <article class="stall" data-crop="wheat">
+          <header><h2 class="trade-name">Wheat</h2><p class="trade-price">0g</p></header>
+          <p class="muted trade-meta"></p>
           <div class="trade-actions">
-            <button type="button" id="buy">Buy</button>
-            <button type="button" id="sell">Sell</button>
-            <button type="button" id="sell-all">Sell all</button>
+            <button type="button" class="sell-btn" data-crop="wheat">Sell 1</button>
+            <button type="button" class="sell-all-btn" data-crop="wheat">Sell all</button>
           </div>
-        </aside>
+        </article>
+        <article class="stall" data-crop="carrot">
+          <header><h2 class="trade-name">Carrots</h2><p class="trade-price">0g</p></header>
+          <p class="muted trade-meta"></p>
+          <div class="trade-actions">
+            <button type="button" class="sell-btn" data-crop="carrot">Sell 1</button>
+            <button type="button" class="sell-all-btn" data-crop="carrot">Sell all</button>
+          </div>
+        </article>
+        <article class="stall" data-crop="tomato">
+          <header><h2 class="trade-name">Tomatoes</h2><p class="trade-price">0g</p></header>
+          <p class="muted trade-meta"></p>
+          <div class="trade-actions">
+            <button type="button" class="sell-btn" data-crop="tomato">Sell 1</button>
+            <button type="button" class="sell-all-btn" data-crop="tomato">Sell all</button>
+          </div>
+        </article>
+        <article class="stall" data-crop="cotton">
+          <header><h2 class="trade-name">Cotton</h2><p class="trade-price">0g</p></header>
+          <p class="muted trade-meta"></p>
+          <div class="trade-actions">
+            <button type="button" class="sell-btn" data-crop="cotton">Sell 1</button>
+            <button type="button" class="sell-all-btn" data-crop="cotton">Sell all</button>
+          </div>
+        </article>
       </div>
-      <section id="market-trades" class="trade-book" hidden>
-        <div class="trade-summary">
-          <span>Bought <b id="trade-bought">0g</b></span>
-          <span>Sold <b id="trade-sold">0g</b></span>
-          <span>Net <b id="trade-net">0g</b></span>
+      <section id="market-quests" class="quest-book" hidden>
+        <div class="quest-side">
+          <div id="quest-list" class="quest-blocks"></div>
         </div>
-        <div id="trade-list"></div>
-        <p id="trade-empty" class="muted">No trades yet. Buys and sells will show up here.</p>
+        <article id="quest-detail" class="quest-detail">
+          <p id="quest-detail-status" class="quest-kicker">Active</p>
+          <h3 id="quest-detail-title">Turn the soil</h3>
+          <p id="quest-detail-text"></p>
+          <div class="quest-reward">
+            <span>Reward</span>
+            <b id="quest-detail-reward">15g</b>
+          </div>
+        </article>
+      </section>
+    </div>
+  </div>
+  <div id="exchange" class="market-overlay" hidden>
+    <div class="market-card" role="dialog" aria-labelledby="exchange-title">
+      <div class="shop-head">
+        <h2 id="exchange-title" class="market-title">Stock Market</h2>
+        <div class="head-side">
+          <div class="desk-purse">
+            <strong><i class="coin" aria-hidden="true"></i><span id="exchange-gold">0g</span></strong>
+            <span id="exchange-net" title="Gold, plus harvested crops at the current market price.">Net worth 0g</span>
+          </div>
+          <button type="button" id="exchange-close">Close</button>
+        </div>
+      </div>
+      <div class="market-tabs">
+        <button type="button" id="exchange-tab-prices">Prices</button>
+        <button type="button" id="exchange-tab-trades">History</button>
+      </div>
+      <div class="market-layout" id="exchange-prices">
+        <div class="qty-row qty-picks exchange-qty">
+          <button type="button" data-qty="100">100</button>
+          <button type="button" data-qty="1000">1,000</button>
+          <button type="button" data-qty="10000">10,000</button>
+        </div>
+        <p class="muted exchange-note">All four prices, with fair value as the dashed line. The lot size above applies to every buy and sell.</p>
+        <div class="chart-grid">
+          <article class="quote" data-crop="wheat">
+            <header><h2 class="trade-name">Wheat</h2><p class="trade-price">0g</p></header>
+            <div class="quote-facts"><p class="muted trade-meta"></p><p class="trade-pnl"></p></div>
+            <div class="chart-wrap"><canvas class="price-chart" data-crop="wheat" aria-label="Wheat price chart"></canvas><div class="chart-tip" hidden></div></div>
+            <div class="trade-actions">
+              <button type="button" class="buy-btn" data-crop="wheat">Buy</button>
+              <button type="button" class="sell-btn" data-crop="wheat">Sell</button>
+              <button type="button" class="sell-all-btn" data-crop="wheat">Sell all</button>
+            </div>
+          </article>
+          <article class="quote" data-crop="carrot">
+            <header><h2 class="trade-name">Carrots</h2><p class="trade-price">0g</p></header>
+            <div class="quote-facts"><p class="muted trade-meta"></p><p class="trade-pnl"></p></div>
+            <div class="chart-wrap"><canvas class="price-chart" data-crop="carrot" aria-label="Carrot price chart"></canvas><div class="chart-tip" hidden></div></div>
+            <div class="trade-actions">
+              <button type="button" class="buy-btn" data-crop="carrot">Buy</button>
+              <button type="button" class="sell-btn" data-crop="carrot">Sell</button>
+              <button type="button" class="sell-all-btn" data-crop="carrot">Sell all</button>
+            </div>
+          </article>
+          <article class="quote" data-crop="tomato">
+            <header><h2 class="trade-name">Tomatoes</h2><p class="trade-price">0g</p></header>
+            <div class="quote-facts"><p class="muted trade-meta"></p><p class="trade-pnl"></p></div>
+            <div class="chart-wrap"><canvas class="price-chart" data-crop="tomato" aria-label="Tomato price chart"></canvas><div class="chart-tip" hidden></div></div>
+            <div class="trade-actions">
+              <button type="button" class="buy-btn" data-crop="tomato">Buy</button>
+              <button type="button" class="sell-btn" data-crop="tomato">Sell</button>
+              <button type="button" class="sell-all-btn" data-crop="tomato">Sell all</button>
+            </div>
+          </article>
+          <article class="quote" data-crop="cotton">
+            <header><h2 class="trade-name">Cotton</h2><p class="trade-price">0g</p></header>
+            <div class="quote-facts"><p class="muted trade-meta"></p><p class="trade-pnl"></p></div>
+            <div class="chart-wrap"><canvas class="price-chart" data-crop="cotton" aria-label="Cotton price chart"></canvas><div class="chart-tip" hidden></div></div>
+            <div class="trade-actions">
+              <button type="button" class="buy-btn" data-crop="cotton">Buy</button>
+              <button type="button" class="sell-btn" data-crop="cotton">Sell</button>
+              <button type="button" class="sell-all-btn" data-crop="cotton">Sell all</button>
+            </div>
+          </article>
+        </div>
+      </div>
+      <section id="exchange-trades" class="trade-book" hidden>
+        <div class="trade-summary">
+          <span>Bought <b class="trade-bought">0g</b></span>
+          <span>Sold <b class="trade-sold">0g</b></span>
+          <span>Net <b class="trade-net">0g</b></span>
+        </div>
+        <div class="trade-list"></div>
+        <p class="trade-empty muted">No trades yet. Buys and sells will show up here.</p>
       </section>
     </div>
   </div>
@@ -198,6 +293,13 @@
           <span class="seed-meta" id="land-meta"></span>
         </div>
         <button type="button" id="buy-plot">100g</button>
+      </div>
+      <div class="land-offer">
+        <div class="seed-copy">
+          <strong>Watering can</strong>
+          <span class="seed-meta" id="can-meta"></span>
+        </div>
+        <button type="button" id="upgrade-can">50g</button>
       </div>
       <div class="land-offer">
         <div class="seed-copy">
@@ -223,33 +325,91 @@
       <div id="seeds"></div>
     </div>
   </div>
+  <div id="wardrobe" class="shop-overlay" hidden>
+    <div class="shop-card wardrobe-card" role="dialog" aria-labelledby="wardrobe-title">
+      <div class="shop-head">
+        <h2 id="wardrobe-title">Cottage</h2>
+        <button type="button" id="wardrobe-close">Close</button>
+      </div>
+      <p class="muted">Pick who you are on the farm.</p>
+      <h3>Character</h3>
+      <div id="wardrobe-looks" class="look-row">
+        <button type="button" class="look-pick" data-look="overalls">
+          <img src="art/farmer.png?v=1" alt="">
+          <span>Overalls</span>
+        </button>
+        <button type="button" class="look-pick" data-look="bright">
+          <img src="art/farmer-2.png?v=1" alt="">
+          <span>Blue dress</span>
+        </button>
+      </div>
+    </div>
+  </div>
   <div id="hq" class="shop-overlay" hidden>
     <div class="shop-card hq-card" role="dialog" aria-labelledby="hq-title">
       <div class="shop-head">
         <h2 id="hq-title">Farmer's HQ</h2>
         <button type="button" id="hq-close">Close</button>
       </div>
-      <p class="muted">Hire farmhands and see how the field is doing.</p>
+      <p class="muted">See how the field is doing, and manage the crew.</p>
       <div class="market-tabs" id="hq-tabs">
         <button type="button" id="hq-tab-active">Active</button>
+        <button type="button" id="hq-tab-crew">Crew</button>
         <button type="button" id="hq-tab-history">History</button>
       </div>
       <div id="hq-active">
-        <h3>Field</h3>
-        <div id="hq-field" class="hq-stats"></div>
-        <h3>Crops</h3>
-        <div id="hq-live" class="hq-stats"></div>
-        <h3>Crew</h3>
-        <div class="land-offer hq-crew">
-          <div class="seed-copy">
-            <strong id="hq-count">0 farmhands</strong>
-            <span class="seed-meta" id="hq-hire-meta"></span>
+        <section class="hq-panel">
+          <h3>Field</h3>
+          <div id="hq-field" class="hq-stats"></div>
+        </section>
+        <section class="hq-panel">
+          <h3>Seeds</h3>
+          <div id="hq-seeds" class="hq-stats"></div>
+        </section>
+        <section class="hq-panel">
+          <h3>Crops</h3>
+          <div id="hq-live" class="hq-stats"></div>
+        </section>
+        <section class="hq-panel">
+          <h3>Grown</h3>
+          <div id="hq-grown" class="hq-stats"></div>
+        </section>
+      </div>
+      <div id="hq-crew" hidden>
+        <section class="hq-panel">
+          <div class="land-offer hq-crew">
+            <div class="seed-copy">
+              <strong id="hq-count">0 farmhands</strong>
+              <span class="seed-meta" id="hq-hire-meta"></span>
+            </div>
+            <div class="hq-actions">
+              <button type="button" id="hq-fire">Fire</button>
+              <button type="button" id="hq-hire">Hire 1000g</button>
+            </div>
           </div>
-          <div class="hq-actions">
-            <button type="button" id="hq-fire">Fire</button>
-            <button type="button" id="hq-hire">Hire 1000g</button>
+          <h3>Crop priority</h3>
+          <p class="muted">Farmhands plant, water, and harvest the top crop first. When that seed runs out, they use the next one on the list.</p>
+          <div id="hq-rank"></div>
+        </section>
+        <section class="hq-panel">
+          <div class="land-offer hq-crew">
+            <div class="seed-copy">
+              <strong id="seller-count">No seller</strong>
+              <span class="seed-meta" id="seller-meta"></span>
+            </div>
+            <div class="hq-actions">
+              <button type="button" id="seller-fire">Fire</button>
+              <button type="button" id="seller-hire">Hire 2500g</button>
+            </div>
           </div>
-        </div>
+          <div id="seller-prices" hidden>
+            <p class="muted">He sells whatever is left over a full hundred, down to the nearest hundred or to zero. A block of 100 stays put.</p>
+            <div class="sell-row"><span>Wheat <b id="sell-now-wheat"></b></span><label>Sell at <input id="sell-at-wheat" type="number" min="1" max="999" step="1" inputmode="numeric"></label></div>
+            <div class="sell-row"><span>Carrot <b id="sell-now-carrot"></b></span><label>Sell at <input id="sell-at-carrot" type="number" min="1" max="999" step="1" inputmode="numeric"></label></div>
+            <div class="sell-row"><span>Tomato <b id="sell-now-tomato"></b></span><label>Sell at <input id="sell-at-tomato" type="number" min="1" max="999" step="1" inputmode="numeric"></label></div>
+            <div class="sell-row"><span>Cotton <b id="sell-now-cotton"></b></span><label>Sell at <input id="sell-at-cotton" type="number" min="1" max="999" step="1" inputmode="numeric"></label></div>
+          </div>
+        </section>
       </div>
       <div id="hq-history" hidden>
         <div id="hq-yield" class="hq-stats"></div>
@@ -272,6 +432,6 @@
       <div id="monsango-seeds"></div>
     </div>
   </div>
-  <script src="game.js?v=waterbare"></script>
+  <script src="game.js?v=deskdark"></script>
 </body>
 </html>

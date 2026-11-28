@@ -25,13 +25,19 @@ const FIELD = { x: 2, y: 3, w: 12, h: 8 };
 const PLOT_COUNT = FIELD.w * FIELD.h;
 const PLOT_PRICE = 100;
 const CAN_MAX = 6;
+const CAN_UPGRADES = 4;
+const CAN_UPGRADE_PLOTS = 2;
+const CAN_UPGRADE_PRICE = 50;
+const CAN_UPGRADE_STEP = 25;
 const SPRINKLER_PRICE = 250;
 const SPRINKLER_PLOTS = 5;
 const FARMHAND_PRICE = 1000;
 const FARMHAND_WAGE = 15;
+const SELLER_PRICE = 2500;
 const MAX_HANDS = 10;
 const HAMMER_PRICE = 200;
 const STOCK_PRICE = 1000;
+const ORCHARD_PRICE = 20000;
 const STARTER_PLOTS = { w: 3, h: 2 };
 const TOOLS = ["hoe", "water", "seed", "hand"];
 const FACING = { up: [0, -1], down: [0, 1], left: [-1, 0], right: [1, 0] };
@@ -206,14 +212,18 @@ const READY_ART = {
   cottonReady: "art/cotton-ready.png?v=1",
 };
 
-const ICONS = {
-  wheat: PLANTS.wheatReady,
-  carrot: PLANTS.carrotReady,
-  tomato: PLANTS.tomatoReady,
-  cotton: PLANTS.cottonReady,
+const FARMERS = {
+  overalls: "art/farmer.png?v=1",
+  bright: "art/farmer-2.png?v=1",
 };
 
-const FARMER = `<img src="art/farmer.png?v=1" alt="">`;
+function farmerLook() {
+  return state && state.look === "bright" ? "bright" : "overalls";
+}
+
+function farmerMarkup() {
+  return `<img src="${FARMERS[farmerLook()]}" alt="">`;
+}
 
 const HELPER = px(`
   <rect x="2" y="3" width="12" height="2" fill="#5f8f3a"/>
@@ -311,16 +321,12 @@ const TREE = px(`
 
 const CITY_BUILDINGS = [
   { id: "bakery", name: "Bakery", x: 1, y: 1, w: 3, h: 3 },
-  { id: "cafe", name: "Cafe", x: 5, y: 1, w: 3, h: 3 },
-  { id: "hq", name: "Farmer's HQ", x: 15, y: 1, w: 4, h: 3 },
-  { id: "library", name: "Library", x: 21, y: 1, w: 2, h: 3 },
+  { id: "cafe", name: "Cafe", x: 5, y: 3, w: 3, h: 3 },
+  { id: "hq", name: "Farmer's HQ", x: 15, y: 3, w: 4, h: 3 },
+  { id: "library", name: "Library", x: 21, y: 3, w: 2, h: 3 },
   { id: "bank", name: "Bank", x: 1, y: 4, w: 3, h: 2 },
-  { id: "fountain", name: "Fountain", x: 7, y: 4, w: 2, h: 2 },
   { id: "exchange", name: "Exchange", x: 10, y: 0, w: 3, h: 6 },
-  { id: "cottage", name: "Cottage", x: 16, y: 4, w: 2, h: 2 },
-  { id: "cottage", name: "Cottage", x: 19, y: 4, w: 2, h: 2 },
   { id: "monsango", name: "Monsango", x: 4, y: 9, w: 4, h: 3 },
-  { id: "cottage", name: "Cottage", x: 1, y: 10, w: 2, h: 2 },
   { id: "market", name: "Market Hall", x: 15, y: 9, w: 3, h: 3 },
   { id: "chapel", name: "Chapel", x: 19, y: 9, w: 3, h: 3 },
 ];
@@ -464,25 +470,28 @@ function bindWorld(data) {
   world = data;
 }
 
-let loaded = loadState();
-let hasSave = loaded !== null;
-let state = loaded || createNewState();
-bindWorld(state);
+let loaded = null;
+let hasSave = false;
+let state = null;
 let buildMode = false;
 let buildPick = null;
 let menuOpen = true;
 let statusText = "Walk onto a plot. Space does whatever that soil needs next.";
-if (state.plots.some(isReady)) statusText = "A crop is ready. Walk onto it and press Space to harvest.";
-else if (state.plots.some((plot) => plot.crop)) statusText = "Walk onto a plot. Space waters, plants, or tills whatever it needs.";
 let accumulator = 0;
 let lastNow = 0;
 let shopOpen = false;
+let wardrobeOpen = false;
 let monsangoOpen = false;
 let hqOpen = false;
 let hqView = "active";
+let rankDrag = null;
 let marketOpen = false;
 let marketDesk = "tab";
-let marketView = "prices";
+let tabView = "prices";
+let exchangeView = "prices";
+let questPick = null;
+const questBlocksOpen = new Set();
+const questBlocksSet = new Set();
 let acting = null;
 let choreTimer = 0;
 const CHORE_MS = 750;
@@ -492,7 +501,8 @@ let moveSaveAt = 0;
 let handJobs = [];
 let handSaveAt = 0;
 const held = new Set();
-let chartGeom = null;
+let chartGeoms = new Map();
+let hoverChart = null;
 let hoverX = null;
 let tiles = [];
 
@@ -529,6 +539,25 @@ function cityBuilding(x, y) {
   )) || null;
 }
 
+function mapPlace(place) {
+  if (place === "city" || place === "orchard" || place === "farm") return place;
+  if (state && (state.place === "city" || state.place === "orchard")) return state.place;
+  return "farm";
+}
+
+function orchardTree(x, y) {
+  const cols = [1, 4, 7, 16, 19, 22];
+  const rows = [3, 7, 11];
+  return cols.includes(x) && rows.includes(y);
+}
+
+function orchardRole(x, y) {
+  if (orchardTree(x, y)) return "tree";
+  if ((x === 11 || x === 12) && y >= 0 && y <= 13) return "path";
+  if ((y === 5 || y === 9) && x >= 1 && x <= 22) return "path";
+  return "grass";
+}
+
 function cityRole(x, y) {
   if (x >= 10 && x <= 12 && y >= 8) return "street";
   if (y === 6 || y === 7) return "street";
@@ -539,9 +568,11 @@ function cityRole(x, y) {
 
 function roleAt(x, y, place) {
   if (!inBounds(x, y)) return "void";
-  const here = place || (state.place === "city" ? "city" : "farm");
+  const here = mapPlace(place);
   if (here === "city") return cityRole(x, y);
+  if (here === "orchard") return orchardRole(x, y);
   if (x === 19 && (y === 5 || y === 6)) return "shop";
+  if (x === 17 && y === 2) return "stall";
   if (x === 17 && y === 10) return "bed";
   if (x >= 17 && x <= 19 && y >= 8 && y <= 10) return "house";
   const well = world && world.well ? world.well : { x: 1, y: 12 };
@@ -570,6 +601,8 @@ function isTree(x, y) {
 }
 
 function walkable(x, y, place) {
+  const here = mapPlace(place);
+  if (here === "farm" && state && !state.city && x === 16 && y === 0) return false;
   const role = roleAt(x, y, place);
   return role === "grass" || role === "path" || role === "field" || role === "plaza" || role === "street";
 }
@@ -608,9 +641,137 @@ function placePlots(plots) {
   });
 }
 
+function canCapacity(level = 0) {
+  return CAN_MAX + level * CAN_UPGRADE_PLOTS;
+}
+
+function canUpgradeCost(level = 0) {
+  return CAN_UPGRADE_PRICE + level * CAN_UPGRADE_STEP;
+}
+
 function emptyPlot() {
   return { tilled: false, watered: false, crop: null, progress: 0, owned: false };
 }
+
+function harvestedOf(data) {
+  return ORDER.reduce((sum, id) => sum + (data.harvested?.[id] || 0), 0);
+}
+
+function goodsOf(data) {
+  return ORDER.reduce((sum, id) => sum + (data.goods?.[id] || 0), 0);
+}
+
+const QUESTS = [
+  {
+    title: "Turn the soil",
+    text: "Till a plot with the hoe.",
+    guide: "Walk onto one of your plots. Select the hoe in the toolbar, or press 1. Then press Space to till the soil.",
+    reward: 15,
+    done: (data) => data.plots.some((plot) => plot.owned && (plot.tilled || plot.crop)) || harvestedOf(data) > 0,
+  },
+  {
+    title: "Plant a seed",
+    text: "Plant a seed in tilled soil.",
+    guide: "Stand on tilled soil. Select wheat in the toolbar, or press 3. Press Space to plant. You start with ten wheat seeds.",
+    reward: 15,
+    done: (data) => data.plots.some((plot) => plot.crop) || harvestedOf(data) > 0,
+  },
+  {
+    title: "Water the field",
+    text: "Water tilled soil or a growing crop.",
+    guide: "Stand on tilled soil or a growing crop. Select the watering can, or press 2. Press Space to water. One watering lasts until harvest and cuts the grow time in half. Fill the can at the well when it is empty.",
+    reward: 20,
+    done: (data) => data.plots.some((plot) => plot.watered) || harvestedOf(data) > 0,
+  },
+  {
+    title: "First harvest",
+    text: "Harvest a ripe crop.",
+    guide: "Wait for the crop to finish growing. Wheat takes six hours if you watered it, or twelve if you did not. Stand on the ripe plot and press Space to harvest.",
+    reward: 60,
+    done: (data) => harvestedOf(data) > 0,
+  },
+  {
+    title: "Take it to market",
+    text: "Sell a crop. Press Tab on the farm.",
+    guide: "Press Tab to open the market. Choose the crop you harvested, then press Sell. Tab closes the market again.",
+    reward: 30,
+    done: (data) => harvestedOf(data) > goodsOf(data) || (data.trades || []).some((trade) => trade.side === "sell"),
+  },
+  {
+    title: "More land",
+    text: "Buy another plot.",
+    guide: "Walk up to Trailer Supply, the trailer by the path, and press Space. Buy a plot for 100g. The new square is added next to the field you already own.",
+    reward: 40,
+    done: (data) => data.plots.filter((plot) => plot.owned).length > STARTER_PLOTS.w * STARTER_PLOTS.h,
+  },
+  {
+    title: "A new crop",
+    text: "Plant carrots, tomatoes, or cotton.",
+    guide: "Buy carrot, tomato, or cotton seeds at Trailer Supply. Till a plot with the hoe (1), then select that crop with 4, 5, or 6. Stand on the tilled soil and press Space to plant.",
+    reward: 25,
+    done: (data) => data.plots.some((plot) => plot.crop && plot.crop !== "wheat")
+      || ["carrot", "tomato", "cotton"].some((id) => (data.harvested?.[id] || 0) > 0),
+  },
+  {
+    block: "homestead",
+    title: "Save for a farmhand",
+    text: "Set aside 1,000g for a farmhand.",
+    guide: "A farmhand walks the field and tills, plants, waters, and harvests while you are doing something else. The first one is hired at Trailer Supply for 1,000g, then costs 15g each morning. Keep harvesting, and sell crops with Tab, until you have 1,000g.",
+    reward: 30,
+    done: (data) => (data.gold || 0) >= FARMHAND_PRICE || (data.hands || []).length > 0 || data.farmhand,
+  },
+  {
+    block: "homestead",
+    title: "Hire a farmhand",
+    text: "Hire a farmhand at Trailer Supply.",
+    guide: "Walk up to Trailer Supply, the trailer beside the path, and press Space. Hire the farmhand for 1,000g. He works one chore at a time. Each morning he needs 15g, or he waits until you can pay him.",
+    reward: 40,
+    done: (data) => (data.hands || []).length > 0 || data.farmhand,
+  },
+  {
+    block: "homestead",
+    title: "Open the road",
+    text: "Unlock the city for 1,000g.",
+    guide: "Walk to the top of the path, where it leaves the farm. Press Space and pay 1,000g to open the road into town. The stock market is there, and Farmer's HQ hires more farmhands. Your farmhand keeps working the field while you are in town.",
+    reward: 50,
+    done: (data) => Boolean(data.city),
+  },
+  {
+    block: "orchard",
+    title: "Open the orchard",
+    text: "Unlock the orchard for 20,000g.",
+    guide: "Walk to the bottom of the path, where it leaves the farm. Press Space and pay 20,000g to open the orchard. Rows of trees and two crossing lanes are waiting on the other side.",
+    reward: 100,
+    done: (data) => Boolean(data.orchard),
+  },
+];
+
+const QUEST_BLOCKS = [
+  { id: "tutorial", name: "Tutorial" },
+  { id: "homestead", name: "Homestead" },
+  { id: "orchard", name: "Orchard" },
+];
+
+function questGroups() {
+  const groups = QUEST_BLOCKS.map((block) => ({ ...block, items: [] }));
+  QUESTS.forEach((quest, index) => {
+    const id = quest.block || "tutorial";
+    let group = groups.find((item) => item.id === id);
+    if (!group) {
+      group = { id, name: id, items: [] };
+      groups.push(group);
+    }
+    group.items.push({ quest, index });
+  });
+  return groups.filter((group) => group.items.length);
+}
+
+loaded = loadState();
+hasSave = loaded !== null;
+state = loaded || createNewState();
+bindWorld(state);
+if (state.plots.some(isReady)) statusText = "A crop is ready. Walk onto it and press Space to harvest.";
+else if (state.plots.some((plot) => plot.crop)) statusText = "Walk onto a plot. Space waters, plants, or tills whatever it needs.";
 
 function freshPrices() {
   const history = {};
@@ -653,6 +814,7 @@ function createNewState() {
     hour: 6,
     tool: "hoe",
     player: { x: 16, y: 6, px: 16 * TILE, py: 6 * TILE, facing: "left" },
+    look: "overalls",
     seeds: { wheat: 10, carrot: 0, tomato: 0, cotton: 0 },
     goods: { wheat: 0, carrot: 0, tomato: 0, cotton: 0 },
     plots: starterPlots(),
@@ -668,16 +830,24 @@ function createNewState() {
     worldRows: MAP_ROWS,
     growPace: 4,
     water: CAN_MAX,
+    canLevel: 0,
     sprinklers: 0,
     farmhand: false,
     hands: [],
     handPaid: false,
+    cropRank: ["wheat", "carrot", "tomato", "cotton"],
+    seller: false,
+    sellAt: { wheat: 14, carrot: 24, tomato: 36, cotton: 58 },
     harvested: { wheat: 0, carrot: 0, tomato: 0, cotton: 0 },
     hammer: false,
     stockMarket: false,
+    city: false,
+    orchard: false,
+    weather: { id: "clear", day: 1 },
     trades: [],
     basis: { wheat: { qty: 0, cost: 0 }, carrot: { qty: 0, cost: 0 }, tomato: { qty: 0, cost: 0 }, cotton: { qty: 0, cost: 0 } },
     well: { x: 14, y: 13 },
+    quest: 0,
   };
 }
 
@@ -686,7 +856,8 @@ function isValidSave(data) {
   if (!Array.isArray(data.plots) || data.plots.length !== PLOT_COUNT) return false;
   if (!data.prices || !data.history || !data.seeds || !data.goods || !data.player) return false;
   if (typeof data.gold !== "number" || typeof data.day !== "number" || typeof data.hour !== "number") return false;
-  if (!walkable(data.player.x, data.player.y, data.place === "city" ? "city" : "farm")) return false;
+  const place = data.place === "city" || data.place === "orchard" ? data.place : "farm";
+  if (!walkable(data.player.x, data.player.y, place)) return false;
   for (const id of ORDER) {
     if (typeof data.prices[id] !== "number") return false;
     if (!Array.isArray(data.history[id]) || data.history[id].length < 2) return false;
@@ -697,11 +868,12 @@ function isValidSave(data) {
 
 function normalize(data) {
   data.view = "farm";
-  data.place = data.place === "city" ? "city" : "farm";
+  data.place = data.place === "city" || data.place === "orchard" ? data.place : "farm";
   data.selectedSeed = CROPS[data.selectedSeed] ? data.selectedSeed : "wheat";
   data.marketCrop = CROPS[data.marketCrop] ? data.marketCrop : "wheat";
   data.tool = TOOLS.includes(data.tool) ? data.tool : "hoe";
   data.player.facing = FACING[data.player.facing] ? data.player.facing : "left";
+  data.look = data.look === "bright" ? "bright" : "overalls";
   if (data.mapScale !== TILE) {
     const from = typeof data.mapScale === "number" ? data.mapScale : 40;
     const scale = TILE / from;
@@ -715,8 +887,30 @@ function normalize(data) {
   }
   data.hammer = Boolean(data.hammer);
   data.stockMarket = Boolean(data.stockMarket);
+  data.city = Boolean(data.city) || data.stockMarket;
+  if (data.city) data.stockMarket = true;
+  data.orchard = Boolean(data.orchard);
+  const skies = ["clear", "rain", "hail", "pests"];
+  if (!data.weather || !skies.includes(data.weather.id)) data.weather = { id: "clear", day: data.day };
+  data.weather.day = data.day;
+  if (!data.orchard && data.place === "orchard") {
+    data.place = "farm";
+    data.player.x = 16;
+    data.player.y = 11;
+    data.player.px = 16 * TILE;
+    data.player.py = 11 * TILE;
+    data.player.facing = "up";
+  }
+  if (!data.city && data.place === "city") {
+    data.place = "farm";
+    data.player.x = 16;
+    data.player.y = 1;
+    data.player.px = 16 * TILE;
+    data.player.py = 1 * TILE;
+    data.player.facing = "up";
+  }
   data.trades = Array.isArray(data.trades)
-    ? data.trades.filter((trade) => trade && CROPS[trade.crop] && (trade.side === "buy" || trade.side === "sell")).slice(0, 40)
+    ? data.trades.filter(isMarketTrade).slice(0, 40)
     : [];
   if (!data.well || typeof data.well.x !== "number" || typeof data.well.y !== "number") {
     data.well = { x: 14, y: 13 };
@@ -742,9 +936,11 @@ function normalize(data) {
   data.hour = Math.max(0, Math.min(23, data.hour | 0));
   data.day = Math.max(1, data.day | 0);
   data.gold = Math.max(0, Math.round(data.gold));
+  data.canLevel = Math.max(0, Math.min(CAN_UPGRADES, data.canLevel | 0));
+  const capacity = canCapacity(data.canLevel);
   data.water = typeof data.water === "number"
-    ? Math.max(0, Math.min(CAN_MAX, Math.round(data.water)))
-    : CAN_MAX;
+    ? Math.max(0, Math.min(capacity, Math.round(data.water)))
+    : capacity;
   data.sprinklers = Math.max(0, data.sprinklers | 0);
   if (!Array.isArray(data.hands)) data.hands = [];
   if (data.farmhand && data.hands.length === 0) {
@@ -762,6 +958,19 @@ function normalize(data) {
   }));
   data.farmhand = data.hands.length > 0;
   data.hand = data.hands[0] || null;
+  const rank = Array.isArray(data.cropRank)
+    ? data.cropRank.filter((id, index, list) => CROPS[id] && list.indexOf(id) === index)
+    : [];
+  ORDER.forEach((id) => {
+    if (!rank.includes(id)) rank.push(id);
+  });
+  data.cropRank = rank;
+  data.seller = Boolean(data.seller);
+  if (!data.sellAt || typeof data.sellAt !== "object") data.sellAt = {};
+  ORDER.forEach((id) => {
+    const ask = Math.round(Number(data.sellAt[id]));
+    data.sellAt[id] = Number.isFinite(ask) && ask >= 1 ? Math.min(ask, 999) : CROPS[id].mean;
+  });
   data.handPaid = data.farmhand ? data.handPaid !== false : false;
   data.harvested = data.harvested && typeof data.harvested === "object" ? data.harvested : {};
   ORDER.forEach((id) => {
@@ -787,6 +996,8 @@ function normalize(data) {
     if (plot.owned === undefined) plot.owned = true;
     plot.owned = Boolean(plot.owned) || Boolean(plot.crop) || plot.tilled;
   });
+  data.quest = Number.isInteger(data.quest) && data.quest >= 0 ? data.quest : 0;
+  while (data.quest < QUESTS.length && QUESTS[data.quest].done(data)) data.quest += 1;
   if (data.growPace !== 4) data._fitted = true;
   data.growPace = 4;
   return data;
@@ -833,11 +1044,14 @@ function fitWorld(data) {
     if (typeof data.player.py === "number") data.player.py -= dy * from;
     moved = true;
   }
-  const place = data.place === "city" ? "city" : "farm";
+  const place = data.place === "city" || data.place === "orchard" ? data.place : "farm";
   if (!inBounds(data.player.x | 0, data.player.y | 0) || !walkable(data.player.x | 0, data.player.y | 0, place)) {
     if (place === "city") {
       data.player.x = 11;
       data.player.y = 11;
+    } else if (place === "orchard") {
+      data.player.x = 11;
+      data.player.y = 1;
     } else {
       data.player.x = 16;
       data.player.y = 6;
@@ -996,6 +1210,80 @@ function seedToPlant() {
   return ORDER.find((id) => state.seeds[id] > 0) || null;
 }
 
+function cropRankIndex(id) {
+  const list = state.cropRank || ORDER;
+  const index = list.indexOf(id);
+  return index < 0 ? list.length : index;
+}
+
+function seedForCrew() {
+  const list = state.cropRank && state.cropRank.length ? state.cropRank : ORDER;
+  return list.find((id) => CROPS[id] && state.seeds[id] > 0) || null;
+}
+
+function commitCropRank(list) {
+  state.cropRank = list;
+  save();
+  paint();
+}
+
+function moveCropRank(id, dir) {
+  const list = (state.cropRank || ORDER).slice();
+  const index = list.indexOf(id);
+  const next = index + dir;
+  if (index < 0 || next < 0 || next >= list.length) return;
+  const swap = list[index];
+  list[index] = list[next];
+  list[next] = swap;
+  commitCropRank(list);
+}
+
+function placeCropRank(id, to) {
+  const list = (state.cropRank || ORDER).slice();
+  const from = list.indexOf(id);
+  if (from < 0 || to < 0 || to >= list.length || from === to) return;
+  list.splice(from, 1);
+  list.splice(to, 0, id);
+  commitCropRank(list);
+}
+
+function layoutRankDrag() {
+  if (!rankDrag) return;
+  const rows = [...rankDrag.box.querySelectorAll(".rank-row")];
+  const from = rows.indexOf(rankDrag.row);
+  const height = rankDrag.row.offsetHeight || 1;
+  const shift = Math.round((rankDrag.y - rankDrag.startY) / height);
+  const to = Math.max(0, Math.min(rows.length - 1, from + shift));
+  rankDrag.to = to;
+  rows.forEach((row, index) => {
+    if (row === rankDrag.row) {
+      row.style.transform = `translateY(${rankDrag.y - rankDrag.startY}px)`;
+      return;
+    }
+    let offset = 0;
+    if (from < to && index > from && index <= to) offset = -height;
+    if (from > to && index >= to && index < from) offset = height;
+    row.style.transform = offset ? `translateY(${offset}px)` : "";
+  });
+}
+
+function clearRankDrag() {
+  if (!rankDrag) return;
+  rankDrag.box.querySelectorAll(".rank-row").forEach((row) => {
+    row.classList.remove("dragging");
+    row.style.transform = "";
+  });
+  rankDrag = null;
+}
+
+function endRankDrag() {
+  if (!rankDrag) return;
+  const id = rankDrag.id;
+  const to = rankDrag.to;
+  clearRankDrag();
+  placeCropRank(id, to);
+}
+
 function payFarmhand() {
   const crew = state.hands.length;
   const cost = crew * FARMHAND_WAGE;
@@ -1045,7 +1333,10 @@ function handJobNeeded(job) {
   if (acting && acting.x === job.x && acting.y === job.y) return false;
   if (job.id === "harvest") return isReady(plot);
   if (job.id === "water") return Boolean(plot.crop) && !plot.watered && !isReady(plot);
-  if (job.id === "plant") return plot.tilled && !plot.crop && Boolean(seedToPlant());
+  if (job.id === "plant") {
+    const seed = seedForCrew();
+    return plot.tilled && !plot.crop && seed && job.seed === seed;
+  }
   if (job.id === "till") return !plot.tilled && !plot.crop;
   return false;
 }
@@ -1059,7 +1350,9 @@ function chooseHandJob(index) {
   if (!hand) return null;
   let best = null;
   let bestRank = 99;
+  let bestCrop = 99;
   let bestDist = Infinity;
+  const plantSeed = seedForCrew();
   state.plots.forEach((plot) => {
     if (!plot.owned) return;
     const x = plot.x;
@@ -1067,28 +1360,35 @@ function chooseHandJob(index) {
     if (claimedPlot(x, y, index)) return;
     let id = null;
     let rank = 9;
+    let cropId = plot.crop;
     if (isReady(plot)) {
       id = "harvest";
       rank = 0;
     } else if (plot.crop && !plot.watered) {
       id = "water";
       rank = 1;
-    } else if (plot.tilled && !plot.crop && seedToPlant()) {
+    } else if (plot.tilled && !plot.crop && plantSeed) {
       id = "plant";
       rank = 2;
+      cropId = plantSeed;
     } else if (!plot.tilled && !plot.crop) {
       id = "till";
       rank = 3;
+      cropId = null;
     }
     if (!id) return;
     if (acting && acting.x === x && acting.y === y) return;
+    const cropRank = cropId ? cropRankIndex(cropId) : 99;
     const stand = handStand(x, y);
     const dist = Math.hypot(stand.x - hand.px, stand.y - hand.py);
-    if (rank < bestRank || (rank === bestRank && dist < bestDist)) {
-      bestRank = rank;
-      bestDist = dist;
-      best = { id, x, y, seed: id === "plant" ? seedToPlant() : plot.crop, left: null };
-    }
+    const better = rank < bestRank
+      || (rank === bestRank && cropRank < bestCrop)
+      || (rank === bestRank && cropRank === bestCrop && dist < bestDist);
+    if (!better) return;
+    bestRank = rank;
+    bestCrop = cropRank;
+    bestDist = dist;
+    best = { id, x, y, seed: id === "plant" ? plantSeed : plot.crop, left: null };
   });
   return best;
 }
@@ -1144,7 +1444,7 @@ function finishHandJob(index) {
   if (!job || !handJobNeeded(job)) return;
   const plot = plotAt(job.x, job.y);
   if (job.id === "plant") {
-    const seed = seedToPlant();
+    const seed = state.seeds[job.seed] > 0 ? job.seed : seedForCrew();
     if (!seed) return;
     state.seeds[seed] -= 1;
     plot.crop = seed;
@@ -1224,7 +1524,7 @@ function paintHand() {
   const scene = $("farm-scene");
   if (!scene) return;
   const nodes = [...scene.querySelectorAll(".player.hand")];
-  const show = state.place !== "city";
+  const show = state.place === "farm";
   while (nodes.length < state.hands.length) {
     const hand = document.createElement("div");
     hand.className = "player hand";
@@ -1255,32 +1555,119 @@ function paintHand() {
   if (!show) hideHandFx();
 }
 
-function beginMorning() {
+function cropCounts(plots) {
+  const counts = {};
+  plots.forEach((plot) => {
+    counts[plot.crop] = (counts[plot.crop] || 0) + 1;
+  });
+  return ORDER.filter((id) => counts[id]).map((id) => `${counts[id]} ${noun(CROPS[id], counts[id])}`);
+}
+
+function clearCrop(plot) {
+  plot.crop = null;
+  plot.progress = 0;
+  plot.watered = false;
+  plot.tilled = true;
+}
+
+function runWeather() {
+  const plants = state.plots.filter((plot) => plot.owned && plot.crop);
+  const ripe = plants.filter(isReady);
+  const bag = [
+    { id: "clear", weight: 56 },
+    { id: "rain", weight: 18 },
+  ];
+  if (plants.length) bag.push({ id: "hail", weight: 12 });
+  if (ripe.length) bag.push({ id: "pests", weight: 14 });
+  let roll = Math.random() * bag.reduce((sum, item) => sum + item.weight, 0);
+  let id = "clear";
+  bag.some((item) => {
+    roll -= item.weight;
+    if (roll > 0) return false;
+    id = item.id;
+    return true;
+  });
+  state.weather = { id, day: state.day };
+  if (id === "rain") {
+    state.plots.forEach((plot) => {
+      if (!plot.owned || (!plot.crop && !plot.tilled)) return;
+      plot.watered = true;
+    });
+    return "Rain watered the field.";
+  }
+  if (id === "hail") {
+    const lost = plants.filter(() => Math.random() < 0.3);
+    const names = cropCounts(lost);
+    lost.forEach(clearCrop);
+    return names.length
+      ? `Hail ruined ${joinNames(names)}.`
+      : "Hail rattled the field. The crops held.";
+  }
+  if (id === "pests") {
+    const eaten = ripe.filter(() => Math.random() < 0.4);
+    const names = cropCounts(eaten);
+    eaten.forEach(clearCrop);
+    return names.length
+      ? `Pests ate ${joinNames(names)} that were ready to harvest.`
+      : "Pests crossed the field and left the ripe crops alone.";
+  }
+  return "";
+}
+
+function beginMorning(extra) {
   state.day += 1;
+  const sky = runWeather();
   const helpNote = state.farmhand ? payFarmhand() : "";
   runSprinklers();
   const ripe = growCrops();
   const readyLine = ripeLine(ripe);
-  const line = [helpNote, readyLine].filter(Boolean).join(" ");
+  const line = [sky, helpNote, readyLine].filter(Boolean).join(" ");
   log(line ? `Day ${state.day} begins. ${line}` : `Day ${state.day} begins.`);
-  setStatus(line ? `Morning. ${line}` : "Morning.");
+  const status = line ? `Morning. ${line}` : "Morning.";
+  setStatus(extra ? `${extra} ${status}` : status);
   save();
   paint();
+}
+
+function looseQty(owned) {
+  return Math.max(0, (owned | 0) % 100);
+}
+
+function runSeller() {
+  if (!state.seller) return "";
+  const parts = [];
+  ORDER.forEach((id) => {
+    const owned = state.goods[id] | 0;
+    const qty = looseQty(owned);
+    if (qty < 1 || state.prices[id] < state.sellAt[id]) return;
+    const payout = Math.round(qty * state.prices[id]);
+    const book = state.basis[id];
+    const uncosted = Math.max(0, owned - ((book && book.qty) || 0));
+    const fromShares = Math.max(0, qty - uncosted);
+    if (fromShares) releaseBasis(id, fromShares);
+    state.goods[id] = owned - qty;
+    state.gold += payout;
+    parts.push(`${qty} ${noun(CROPS[id], qty)} for ${payout}g`);
+  });
+  if (!parts.length) return "";
+  const line = `The seller sold ${parts.join(", ")}.`;
+  log(line);
+  return line;
 }
 
 function tickHour() {
   state.hour = (state.hour + 1) % 24;
   stepPrices();
+  const sold = runSeller();
   if (state.hour === 6) {
-    beginMorning();
+    beginMorning(sold);
     return;
   }
   runSprinklers();
   const readyLine = ripeLine(growCrops());
-  if (readyLine) {
-    log(readyLine);
-    setStatus(readyLine);
-  }
+  if (readyLine) log(readyLine);
+  const note = [sold, readyLine].filter(Boolean).join(" ");
+  if (note) setStatus(note);
   save();
   paint();
 }
@@ -1332,10 +1719,32 @@ function moveBy(dx, dy) {
   const tile = tileAtPixel(spot.x, spot.y);
   state.player.x = tile.x;
   state.player.y = tile.y;
-  if (state.place !== "city" && before.x === 16 && before.y === 1 && tile.x === 16 && tile.y === 0) {
-    enterCity();
+  if (state.place === "farm" && before.x === 16 && before.y === 1 && tile.x === 16 && tile.y === 0) {
+    if (state.city) enterCity();
+    else {
+      state.player.x = 16;
+      state.player.y = 1;
+      state.player.py = 1 * TILE;
+      setStatus(state.gold < STOCK_PRICE
+        ? "The road into town costs 1,000g."
+        : "Press Space to open the road into town for 1,000g.");
+      paintOffer();
+    }
+  } else if (state.place === "farm" && before.x === 16 && before.y === 12 && tile.x === 16 && tile.y === 13) {
+    if (state.orchard) enterOrchard();
+    else {
+      state.player.x = 16;
+      state.player.y = 12;
+      state.player.py = 12 * TILE;
+      setStatus(state.gold < ORCHARD_PRICE
+        ? "The orchard costs 20,000g."
+        : "Press Space to open the orchard for 20,000g.");
+      paintOffer();
+    }
   } else if (state.place === "city" && before.y === MAP_ROWS - 2 && tile.y === MAP_ROWS - 1 && tile.x >= 10 && tile.x <= 12) {
     enterFarm();
+  } else if (state.place === "orchard" && before.y === 1 && tile.y === 0 && (tile.x === 11 || tile.x === 12)) {
+    enterFarmFromOrchard();
   }
 }
 
@@ -1348,6 +1757,34 @@ function enterCity() {
   state.player.px = 11 * TILE;
   state.player.py = 11 * TILE;
   state.player.facing = "up";
+  walkTarget = null;
+  paintPlace();
+  save();
+  paint();
+}
+
+function enterFarmFromOrchard() {
+  state.place = "farm";
+  state.player.x = 16;
+  state.player.y = 11;
+  state.player.px = 16 * TILE;
+  state.player.py = 11 * TILE;
+  state.player.facing = "up";
+  walkTarget = null;
+  paintPlace();
+  save();
+  paint();
+}
+
+function enterOrchard() {
+  buildMode = false;
+  buildPick = null;
+  state.place = "orchard";
+  state.player.x = 11;
+  state.player.y = 1;
+  state.player.px = 11 * TILE;
+  state.player.py = 1 * TILE;
+  state.player.facing = "down";
   walkTarget = null;
   paintPlace();
   save();
@@ -1575,6 +2012,28 @@ function nextAction(plot) {
 }
 
 function offerHere() {
+  if (state.place === "farm" && !state.city && state.player.x === 16 && state.player.y <= 1) {
+    const short = state.gold < STOCK_PRICE;
+    return {
+      kind: "gate",
+      x: 16,
+      y: 1,
+      action: short
+        ? { id: "unlock-city", label: "City 1,000g", disabled: true, detail: "The road into town costs 1,000g." }
+        : { id: "unlock-city", label: "City 1,000g" },
+    };
+  }
+  if (state.place === "farm" && !state.orchard && state.player.x === 16 && state.player.y >= 12) {
+    const short = state.gold < ORCHARD_PRICE;
+    return {
+      kind: "gate",
+      x: 16,
+      y: 12,
+      action: short
+        ? { id: "unlock-orchard", label: "Orchard 20,000g", disabled: true, detail: "The orchard costs 20,000g." }
+        : { id: "unlock-orchard", label: "Orchard 20,000g" },
+    };
+  }
   if (state.place === "city") {
     const spots = ["exchange", "monsango", "hq"].map((role) => nearbyRole([role])).filter(Boolean);
     spots.sort((a, b) => a.distance - b.distance);
@@ -1586,26 +2045,17 @@ function offerHere() {
     if (spot.role === "monsango") {
       return { kind: "monsango", x: spot.x, y: spot.y, action: { id: "monsango", label: "Monsango" } };
     }
-    if (!state.stockMarket) {
-      const short = state.gold < STOCK_PRICE;
-      return {
-        kind: "exchange",
-        x: spot.x,
-        y: spot.y,
-        action: short
-          ? { id: "unlock-stock", label: "Unlock 1000g", disabled: true, detail: "The stock market costs 1000g to unlock." }
-          : { id: "unlock-stock", label: "Unlock 1000g" },
-      };
-    }
     return { kind: "exchange", x: spot.x, y: spot.y, action: { id: "exchange", label: "Stock Market" } };
   }
+  if (state.place === "orchard") return null;
   const plot = nearbyPlot();
   if (plot) return { kind: "plot", x: plot.x, y: plot.y, action: nextAction(plotAt(plot.x, plot.y)) };
   const shop = nearbyRole(["shop"]);
   if (shop) return { kind: "shop", x: shop.x, y: shop.y, action: { id: "shop", label: "Trailer Supply" } };
   const well = nearbyRole(["well"]);
   if (well) {
-    const full = state.water >= CAN_MAX;
+    const capacity = canCapacity(state.canLevel);
+    const full = state.water >= capacity;
     return {
       kind: "well",
       x: well.x,
@@ -1614,6 +2064,10 @@ function offerHere() {
         ? { id: "fill", label: "Can full", disabled: true, detail: "The watering can is already full." }
         : { id: "fill", label: "Fill can" },
     };
+  }
+  const home = nearbyRole(["bed", "house"]);
+  if (home) {
+    return { kind: "house", x: home.x, y: home.y, action: { id: "wardrobe", label: "Cottage" } };
   }
   return null;
 }
@@ -1651,13 +2105,22 @@ function doOffer() {
     openMarket("exchange");
     return;
   }
-  if (offer.action.id === "unlock-stock") {
-    unlockStock();
+  if (offer.action.id === "unlock-city") {
+    unlockCity();
+    return;
+  }
+  if (offer.action.id === "unlock-orchard") {
+    unlockOrchard();
+    return;
+  }
+  if (offer.action.id === "wardrobe") {
+    openWardrobe();
     return;
   }
   if (offer.action.id === "fill") {
-    state.water = CAN_MAX;
-    setStatus("Filled the watering can. That's enough for 6 plots.");
+    const capacity = canCapacity(state.canLevel);
+    state.water = capacity;
+    setStatus(`Filled the watering can. That's enough for ${capacity} plots.`);
     save();
     paint();
     return;
@@ -1826,7 +2289,7 @@ function handleBuildClick(x, y) {
 }
 
 function toggleBuild() {
-  if (!state.hammer || acting || state.place === "city") return;
+  if (!state.hammer || acting || state.place !== "farm") return;
   buildMode = !buildMode;
   buildPick = null;
   walkTarget = null;
@@ -1852,7 +2315,7 @@ function buyHammer() {
 
 function clickTile(x, y, event) {
   if (buildMode) {
-    if (!acting && state.place !== "city") handleBuildClick(x, y);
+    if (!acting && state.place === "farm") handleBuildClick(x, y);
     return;
   }
   if (acting) return;
@@ -1867,11 +2330,19 @@ function clickTile(x, y, event) {
     walkTarget = goal;
     return;
   }
+  if (state.place === "orchard") {
+    const goal = walkGoal(x, y, event);
+    if (!goal) return;
+    walkTarget = goal;
+    return;
+  }
   const offer = offerHere();
   const role = roleAt(x, y);
   if (offer && !offer.action.disabled) {
     const hit = (offer.kind === "plot" && offer.x === x && offer.y === y)
-      || (offer.kind === "shop" && role === "shop");
+      || (offer.kind === "shop" && role === "shop")
+      || (offer.kind === "house" && (role === "house" || role === "bed"))
+      || (offer.kind === "gate" && x === 16 && (y <= 1 || y >= 12));
     if (hit) {
       doOffer();
       return;
@@ -1887,7 +2358,7 @@ function clickTile(x, y, event) {
 }
 
 function updateMovement(dt, now) {
-  if (acting || shopOpen || monsangoOpen || hqOpen || marketOpen || menuOpen) {
+  if (acting || shopOpen || wardrobeOpen || monsangoOpen || hqOpen || marketOpen || menuOpen) {
     if (walking) {
       walking = false;
       save();
@@ -1949,7 +2420,41 @@ function updateMovement(dt, now) {
   return false;
 }
 
+function openWardrobe() {
+  if (shopOpen) closeShop();
+  if (monsangoOpen) closeMonsango();
+  if (hqOpen) closeHq();
+  if (marketOpen) closeMarket();
+  wardrobeOpen = true;
+  held.clear();
+  walkTarget = null;
+  walking = false;
+  $("wardrobe").hidden = false;
+  paint();
+}
+
+function closeWardrobe() {
+  if (!wardrobeOpen) return;
+  wardrobeOpen = false;
+  $("wardrobe").hidden = true;
+}
+
+function wearLook(id) {
+  if (!FARMERS[id] || state.look === id) return;
+  state.look = id;
+  setStatus(id === "bright" ? "Changed into the blue dress." : "Changed into the overalls.");
+  save();
+  paint();
+}
+
+function paintWardrobe() {
+  document.querySelectorAll(".look-pick").forEach((button) => {
+    button.classList.toggle("selected", button.dataset.look === farmerLook());
+  });
+}
+
 function openShop() {
+  if (wardrobeOpen) closeWardrobe();
   if (monsangoOpen) closeMonsango();
   if (hqOpen) closeHq();
   shopOpen = true;
@@ -1968,6 +2473,7 @@ function closeShop() {
 
 function openMonsango() {
   if (shopOpen) closeShop();
+  if (wardrobeOpen) closeWardrobe();
   if (marketOpen) closeMarket();
   if (hqOpen) closeHq();
   monsangoOpen = true;
@@ -1986,6 +2492,7 @@ function closeMonsango() {
 
 function openHq() {
   if (shopOpen) closeShop();
+  if (wardrobeOpen) closeWardrobe();
   if (monsangoOpen) closeMonsango();
   if (marketOpen) closeMarket();
   hqOpen = true;
@@ -2003,21 +2510,54 @@ function closeHq() {
   $("hq").hidden = true;
 }
 
+function unlockOrchard() {
+  if (state.orchard) {
+    enterOrchard();
+    return;
+  }
+  if (state.gold < ORCHARD_PRICE) {
+    setStatus("The orchard costs 20,000g.");
+    paint();
+    return;
+  }
+  state.gold -= ORCHARD_PRICE;
+  state.orchard = true;
+  log(`Opened the orchard for ${ORCHARD_PRICE}g.`);
+  setStatus("The orchard is open.");
+  save();
+  enterOrchard();
+}
+
+function unlockCity() {
+  if (state.city) {
+    enterCity();
+    return;
+  }
+  if (state.gold < STOCK_PRICE) {
+    setStatus("The road into town costs 1,000g.");
+    paint();
+    return;
+  }
+  state.gold -= STOCK_PRICE;
+  state.city = true;
+  state.stockMarket = true;
+  log(`Opened the road into town for ${STOCK_PRICE}g.`);
+  setStatus("The road into town is open.");
+  save();
+  enterCity();
+}
+
 function unlockStock() {
   if (state.stockMarket) {
     openMarket("exchange");
     return;
   }
-  if (state.gold < STOCK_PRICE) return;
-  state.gold -= STOCK_PRICE;
-  state.stockMarket = true;
-  log(`Unlocked the stock market for ${STOCK_PRICE}g.`);
-  save();
-  openMarket("exchange");
+  unlockCity();
 }
 
 function openMarket(desk) {
   if (shopOpen) closeShop();
+  if (wardrobeOpen) closeWardrobe();
   if (monsangoOpen) closeMonsango();
   if (hqOpen) closeHq();
   marketDesk = desk === "exchange" ? "exchange" : "tab";
@@ -2026,23 +2566,22 @@ function openMarket(desk) {
   walkTarget = null;
   walking = false;
   hoverX = null;
-  const market = $("market");
-  market.hidden = false;
-  market.dataset.desk = marketDesk;
+  $("market").hidden = marketDesk !== "tab";
+  $("exchange").hidden = marketDesk !== "exchange";
   paint();
-  requestAnimationFrame(() => drawChart());
+  requestAnimationFrame(() => drawCharts());
 }
 
 function closeMarket() {
   if (!marketOpen) return;
   marketOpen = false;
   marketDesk = "tab";
-  marketView = "prices";
+  tabView = "prices";
+  exchangeView = "prices";
   hoverX = null;
-  const market = $("market");
-  market.hidden = true;
-  market.dataset.desk = "tab";
-  $("chart-tip").hidden = true;
+  $("market").hidden = true;
+  $("exchange").hidden = true;
+  document.querySelectorAll(".chart-tip").forEach((tip) => { tip.hidden = true; });
 }
 
 function toggleMarket() {
@@ -2099,6 +2638,26 @@ function buyPlot() {
   paint();
 }
 
+function upgradeCan() {
+  const level = state.canLevel | 0;
+  if (level >= CAN_UPGRADES) return;
+  const cost = canUpgradeCost(level);
+  if (state.gold < cost) {
+    setStatus(`The next can upgrade costs ${cost}g.`);
+    save();
+    paint();
+    return;
+  }
+  state.gold -= cost;
+  state.canLevel = level + 1;
+  state.water = Math.min(canCapacity(state.canLevel), state.water + CAN_UPGRADE_PLOTS);
+  const capacity = canCapacity(state.canLevel);
+  log(`Upgraded the watering can for ${cost}g. It now holds ${capacity} plots.`);
+  setStatus(`The can holds ${capacity} plots.`);
+  save();
+  paint();
+}
+
 function buySprinkler() {
   if (state.gold < SPRINKLER_PRICE) {
     setStatus(`A sprinkler costs ${SPRINKLER_PRICE}g.`);
@@ -2110,6 +2669,42 @@ function buySprinkler() {
   state.sprinklers += 1;
   log(`Bought a sprinkler for ${SPRINKLER_PRICE}g.`);
   setStatus(`Sprinkler set. It waters ${SPRINKLER_PLOTS} plots each hour.`);
+  save();
+  paint();
+}
+
+function hireSeller() {
+  if (state.seller) return;
+  if (state.gold < SELLER_PRICE) {
+    setStatus(`The seller costs ${formatGold(SELLER_PRICE)}.`);
+    paint();
+    return;
+  }
+  state.gold -= SELLER_PRICE;
+  state.seller = true;
+  log(`Hired a seller for ${formatGold(SELLER_PRICE)}.`);
+  const sold = runSeller();
+  setStatus(sold || "Seller hired. He sells leftovers once the price hits your mark.");
+  save();
+  paint();
+}
+
+function fireSeller() {
+  if (!state.seller) return;
+  state.seller = false;
+  log("The seller headed out.");
+  setStatus("The seller headed out.");
+  save();
+  paint();
+}
+
+function setSellPrice(id, raw) {
+  if (!CROPS[id]) return;
+  const ask = Math.round(Number(raw));
+  if (!Number.isFinite(ask) || ask < 1 || ask > 999) return;
+  state.sellAt[id] = ask;
+  const sold = runSeller();
+  if (sold) setStatus(sold);
   save();
   paint();
 }
@@ -2270,9 +2865,16 @@ function releaseBasis(id, qty) {
   if (book.qty === 0) book.cost = 0;
 }
 
+function isMarketTrade(trade) {
+  if (!trade || !CROPS[trade.crop] || (trade.side !== "buy" && trade.side !== "sell")) return false;
+  if (trade.book === "exchange") return trade.qty > 0;
+  return trade.qty > 0 && trade.qty % 100 === 0;
+}
+
 function recordTrade(side, id, qty, gold) {
   if (!Array.isArray(state.trades)) state.trades = [];
   state.trades.unshift({
+    book: "exchange",
     side,
     crop: id,
     qty,
@@ -2284,9 +2886,11 @@ function recordTrade(side, id, qty, gold) {
 }
 
 function paintTrades() {
-  const list = $("trade-list");
-  const empty = $("trade-empty");
-  const trades = Array.isArray(state.trades) ? state.trades : [];
+  const root = $("exchange");
+  if (!root) return;
+  const list = root.querySelector(".trade-list");
+  const empty = root.querySelector(".trade-empty");
+  const trades = (Array.isArray(state.trades) ? state.trades : []).filter(isMarketTrade);
   let bought = 0;
   let sold = 0;
   trades.forEach((trade) => {
@@ -2294,11 +2898,11 @@ function paintTrades() {
     else sold += trade.gold;
   });
   const net = sold - bought;
-  $("trade-bought").textContent = formatGold(bought);
-  $("trade-sold").textContent = formatGold(sold);
-  const netNode = $("trade-net");
+  root.querySelector(".trade-bought").textContent = formatGold(bought);
+  root.querySelector(".trade-sold").textContent = formatGold(sold);
+  const netNode = root.querySelector(".trade-net");
   netNode.textContent = `${net > 0 ? "+" : ""}${formatGold(net)}`;
-  netNode.className = net > 0 ? "up" : net < 0 ? "down" : "";
+  netNode.className = `trade-net ${net > 0 ? "up" : net < 0 ? "down" : ""}`;
   empty.hidden = trades.length > 0;
   list.innerHTML = trades.map((trade) => {
     const crop = CROPS[trade.crop];
@@ -2306,6 +2910,40 @@ function paintTrades() {
     const spent = trade.side === "buy";
     return `<div class="trade-row"><div><strong>${spent ? "Bought" : "Sold"} ${trade.qty} ${name}</strong><span>Day ${trade.day} · ${formatHour(trade.hour)}</span></div><b class="${spent ? "down" : "up"}">${spent ? "−" : "+"}${formatGold(trade.gold)}</b></div>`;
   }).join("");
+}
+
+function paintQuestBook() {
+  const list = $("quest-list");
+  if (questPick === null || questPick < 0 || questPick >= QUESTS.length) {
+    questPick = state.quest < QUESTS.length ? state.quest : QUESTS.length - 1;
+  }
+  list.innerHTML = questGroups().map((group) => {
+    const activeHere = group.items.some((item) => item.index === state.quest);
+    const open = questBlocksSet.has(group.id) ? questBlocksOpen.has(group.id) : activeHere;
+    const done = group.items.filter((item) => item.index < state.quest).length;
+    const status = done === group.items.length ? "Complete" : done > 0 || activeHere ? "In progress" : "Not started";
+    const statusClass = done === group.items.length ? "complete" : done > 0 || activeHere ? "working" : "waiting";
+    const picks = group.items.map(({ quest, index }) => {
+      const stateName = index < state.quest ? "done" : index === state.quest ? "active" : "later";
+      const selected = index === questPick ? " selected" : "";
+      return `<button type="button" class="quest-pick ${stateName}${selected}" data-quest="${index}">${quest.title}</button>`;
+    }).join("");
+    return `<section class="quest-group${open ? " open" : ""}">
+      <button type="button" class="quest-block" data-block="${group.id}" aria-expanded="${open ? "true" : "false"}">
+        <span>${group.name}</span>
+        <b class="${statusClass}">${status}</b>
+      </button>
+      <div class="quest-group-list"${open ? "" : " hidden"}>${picks}</div>
+    </section>`;
+  }).join("");
+  const quest = QUESTS[questPick];
+  const doneQuest = questPick < state.quest;
+  $("quest-detail").classList.toggle("complete", doneQuest);
+  const label = doneQuest ? "Complete" : questPick === state.quest ? "Active" : "Up next";
+  $("quest-detail-status").textContent = label;
+  $("quest-detail-title").textContent = quest.title;
+  $("quest-detail-text").textContent = quest.guide || quest.text;
+  $("quest-detail-reward").textContent = `${quest.reward}g`;
 }
 
 function buyGoods() {
@@ -2333,7 +2971,7 @@ function sellGoods(all) {
   const id = state.marketCrop;
   const crop = CROPS[id];
   const owned = state.goods[id];
-  const qty = all ? owned : readQty();
+  const qty = all ? owned : (marketDesk === "exchange" ? readQty() : 1);
   if (owned < 1 || qty < 1) {
     log(`No ${crop.plural} to sell.`);
     save();
@@ -2346,20 +2984,21 @@ function sellGoods(all) {
     paint();
     return;
   }
+  const shares = marketDesk === "exchange" ? Math.min(qty, (state.basis[id] && state.basis[id].qty) || 0) : 0;
   const payout = Math.round(qty * state.prices[id]);
   releaseBasis(id, qty);
   state.goods[id] -= qty;
   state.gold += payout;
-  if (marketDesk === "exchange") recordTrade("sell", id, qty, payout);
+  if (shares > 0) recordTrade("sell", id, shares, Math.round(shares * state.prices[id]));
   log(`Sold ${qty} ${noun(crop, qty)} for ${payout}g.`);
   save();
   paint();
 }
 
-function drawChart() {
-  const canvas = $("chart");
-  const cropId = state.marketCrop;
+function drawChart(canvas = $(marketDesk === "exchange" ? "exchange-chart" : "chart"), cropId = state.marketCrop, compact = false) {
+  if (!canvas) return;
   const crop = CROPS[cropId];
+  if (!crop) return;
   const series = state.history[cropId];
   const width = canvas.clientWidth;
   const height = canvas.clientHeight;
@@ -2371,8 +3010,8 @@ function drawChart() {
   const ctx = canvas.getContext("2d");
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
-  const pad = { l: 46, r: 14, t: 16, b: 28 };
-  const showUsual = marketDesk === "exchange";
+  const pad = compact ? { l: 32, r: 8, t: 10, b: 18 } : { l: 46, r: 14, t: 16, b: 28 };
+  const showUsual = compact || marketDesk === "exchange";
   let lo = Math.min(...series);
   let hi = Math.max(...series);
   if (showUsual) {
@@ -2383,9 +3022,10 @@ function drawChart() {
   lo -= gutter;
   hi += gutter;
 
-  ctx.fillStyle = "#fffaf0";
+  const lineColor = compact ? "#f0c56a" : crop.color;
+  ctx.fillStyle = compact ? "#1a1612" : "#fffaf0";
   ctx.fillRect(0, 0, width, height);
-  ctx.font = "12px Segoe UI, sans-serif";
+  ctx.font = compact ? "11px Segoe UI, sans-serif" : "12px Segoe UI, sans-serif";
   ctx.textBaseline = "middle";
   ctx.lineWidth = 1;
 
@@ -2395,32 +3035,35 @@ function drawChart() {
     return pad.l + (index / (series.length - 1)) * (width - pad.l - pad.r);
   };
 
-  for (let i = 0; i <= 4; i += 1) {
-    const value = lo + ((hi - lo) * i) / 4;
+  const steps = compact ? 2 : 4;
+  for (let i = 0; i <= steps; i += 1) {
+    const value = lo + ((hi - lo) * i) / steps;
     const y = yAt(value);
-    ctx.strokeStyle = "rgba(90, 70, 45, 0.12)";
+    ctx.strokeStyle = compact ? "rgba(246, 237, 216, 0.12)" : "rgba(90, 70, 45, 0.12)";
     ctx.beginPath();
     ctx.moveTo(pad.l, y);
     ctx.lineTo(width - pad.r, y);
     ctx.stroke();
-    ctx.fillStyle = "#7a6a55";
+    ctx.fillStyle = compact ? "#cbbba6" : "#7a6a55";
     ctx.textAlign = "right";
-    ctx.fillText(value.toFixed(0), pad.l - 8, y);
+    ctx.fillText(value.toFixed(0), pad.l - 6, y);
   }
 
   const meanY = yAt(crop.mean);
   if (showUsual) {
     ctx.save();
     ctx.setLineDash([4, 4]);
-    ctx.strokeStyle = "rgba(120, 90, 40, 0.75)";
+    ctx.strokeStyle = compact ? "rgba(240, 197, 106, 0.45)" : "rgba(120, 90, 40, 0.75)";
     ctx.beginPath();
     ctx.moveTo(pad.l, meanY);
     ctx.lineTo(width - pad.r, meanY);
     ctx.stroke();
     ctx.restore();
-    ctx.fillStyle = "#7a5a32";
-    ctx.textAlign = "right";
-    ctx.fillText("Fair Value", width - pad.r, Math.max(pad.t + 8, meanY - 8));
+    if (!compact) {
+      ctx.fillStyle = "#7a5a32";
+      ctx.textAlign = "right";
+      ctx.fillText("Fair Value", width - pad.r, Math.max(pad.t + 8, meanY - 8));
+    }
   }
 
   ctx.beginPath();
@@ -2433,8 +3076,8 @@ function drawChart() {
   ctx.lineTo(xAt(series.length - 1), height - pad.b);
   ctx.lineTo(xAt(0), height - pad.b);
   ctx.closePath();
-  ctx.globalAlpha = 0.14;
-  ctx.fillStyle = crop.color;
+  ctx.globalAlpha = compact ? 0.16 : 0.14;
+  ctx.fillStyle = lineColor;
   ctx.fill();
   ctx.globalAlpha = 1;
 
@@ -2445,7 +3088,7 @@ function drawChart() {
     if (index === 0) ctx.moveTo(x, y);
     else ctx.lineTo(x, y);
   });
-  ctx.strokeStyle = crop.color;
+  ctx.strokeStyle = lineColor;
   ctx.lineWidth = 2.25;
   ctx.lineJoin = "round";
   ctx.lineCap = "round";
@@ -2453,23 +3096,34 @@ function drawChart() {
 
   const lastX = xAt(series.length - 1);
   const lastY = yAt(series[series.length - 1]);
+  const dot = compact ? 5.5 : 4.5;
   ctx.beginPath();
-  ctx.arc(lastX, lastY, 4.5, 0, Math.PI * 2);
-  ctx.fillStyle = crop.color;
+  ctx.arc(lastX, lastY, dot, 0, Math.PI * 2);
+  if (compact) {
+    const coin = ctx.createRadialGradient(lastX - 1.4, lastY - 1.6, 0.6, lastX, lastY, dot);
+    coin.addColorStop(0, "#ffe7a8");
+    coin.addColorStop(0.55, "#e0a322");
+    coin.addColorStop(1, "#a56b12");
+    ctx.fillStyle = coin;
+  } else {
+    ctx.fillStyle = crop.color;
+  }
   ctx.fill();
-  ctx.lineWidth = 2;
-  ctx.strokeStyle = "#fffaf0";
+  ctx.lineWidth = compact ? 1 : 2;
+  ctx.strokeStyle = compact ? "rgba(90, 50, 10, 0.55)" : "#fffaf0";
   ctx.stroke();
 
-  ctx.fillStyle = "#7a6a55";
-  ctx.font = "12px Segoe UI, sans-serif";
-  ctx.textBaseline = "alphabetic";
-  ctx.textAlign = "left";
-  ctx.fillText("7 days ago", pad.l, height - 8);
-  ctx.textAlign = "right";
-  ctx.fillText("now", width - pad.r, height - 8);
+  if (!compact) {
+    ctx.fillStyle = "#7a6a55";
+    ctx.font = "12px Segoe UI, sans-serif";
+    ctx.textBaseline = "alphabetic";
+    ctx.textAlign = "left";
+    ctx.fillText("7 days ago", pad.l, height - 8);
+    ctx.textAlign = "right";
+    ctx.fillText("now", width - pad.r, height - 8);
+  }
 
-  chartGeom = { pad, width, height, lo, hi, series };
+  chartGeoms.set(canvas, { pad, width, height, lo, hi, series });
   canvas.setAttribute(
     "aria-label",
     showUsual
@@ -2479,13 +3133,24 @@ function drawChart() {
   positionTip();
 }
 
+function drawCharts() {
+  if (!marketOpen) return;
+  if (marketDesk === "exchange" && exchangeView === "prices") {
+    document.querySelectorAll("#exchange .price-chart").forEach((canvas) => {
+      drawChart(canvas, canvas.dataset.crop, true);
+    });
+  }
+}
+
 function positionTip() {
-  const tip = $("chart-tip");
-  if (hoverX === null || !chartGeom || !marketOpen) {
-    tip.hidden = true;
+  const canvas = hoverChart;
+  const tip = canvas && canvas.parentElement.querySelector(".chart-tip");
+  const geom = canvas && chartGeoms.get(canvas);
+  if (!tip || hoverX === null || !geom || !marketOpen) {
+    if (tip) tip.hidden = true;
     return;
   }
-  const { pad, width, height, lo, hi, series } = chartGeom;
+  const { pad, width, height, lo, hi, series } = geom;
   const inner = width - pad.l - pad.r;
   const t = (hoverX - pad.l) / inner;
   if (t < 0 || t > 1) {
@@ -2498,7 +3163,7 @@ function positionTip() {
   tip.hidden = false;
   tip.textContent = `${hoursAgo === 0 ? "Now" : `${hoursAgo}h ago`} · ${Math.round(value)}g`;
   const y = pad.t + (1 - (value - lo) / (hi - lo)) * (height - pad.t - pad.b);
-  tip.style.left = `${Math.min(width - 120, Math.max(8, hoverX + 12))}px`;
+  tip.style.left = `${Math.min(width - 90, Math.max(8, hoverX + 12))}px`;
   tip.style.top = `${Math.max(8, y - 28)}px`;
 }
 
@@ -2572,7 +3237,11 @@ function paintMap() {
 
 function paintPlayer() {
   const player = $("player");
-  if (!player.querySelector("img")) player.innerHTML = FARMER;
+  const look = farmerLook();
+  if (player.dataset.look !== look) {
+    player.dataset.look = look;
+    player.innerHTML = farmerMarkup();
+  }
   player.dataset.facing = state.player.facing;
   player.classList.toggle("walking", walking && !acting);
   player.classList.toggle("acting", Boolean(acting));
@@ -2593,7 +3262,7 @@ function paintOffer() {
     button.style.transform = `translate(${acting.x * TILE + TILE / 2}px, ${acting.y * TILE}px) translate(-50%, -115%)`;
     return;
   }
-  if (shopOpen || marketOpen || monsangoOpen || hqOpen) {
+  if (shopOpen || marketOpen || monsangoOpen || hqOpen || wardrobeOpen) {
     button.hidden = true;
     return;
   }
@@ -2629,6 +3298,7 @@ function openMenu() {
   walkTarget = null;
   walking = false;
   if (shopOpen) closeShop();
+  if (wardrobeOpen) closeWardrobe();
   if (monsangoOpen) closeMonsango();
   if (hqOpen) closeHq();
   if (marketOpen) closeMarket();
@@ -2698,11 +3368,13 @@ function paintHq() {
   const hire = $("hq-hire");
   const fire = $("hq-fire");
   if (!board || !live || !yieldBox || !hire || !fire) return;
-  const showHistory = hqView === "history";
-  $("hq-active").hidden = showHistory;
-  $("hq-history").hidden = !showHistory;
-  $("hq-tab-active").classList.toggle("active", !showHistory);
-  $("hq-tab-history").classList.toggle("active", showHistory);
+  const view = hqView === "crew" || hqView === "history" ? hqView : "active";
+  $("hq-active").hidden = view !== "active";
+  $("hq-crew").hidden = view !== "crew";
+  $("hq-history").hidden = view !== "history";
+  $("hq-tab-active").classList.toggle("active", view === "active");
+  $("hq-tab-crew").classList.toggle("active", view === "crew");
+  $("hq-tab-history").classList.toggle("active", view === "history");
   const tally = fieldSnapshot();
   const nextLand = nextPlotToBuy();
   const buyLabel = nextLand ? `Buy ${PLOT_PRICE}g` : "Full";
@@ -2716,8 +3388,32 @@ function paintHq() {
   live.innerHTML = ORDER.map((id) => {
     const crop = CROPS[id];
     const row = tally.rows[id];
-    return `<div class="hq-row"><span>${crop.name}</span><b>${row.growing} growing · ${row.ready} ready · ${state.goods[id]} stored</b></div>`;
+    return `<div class="hq-row"><span>${crop.name}</span><b>${row.growing} growing · ${row.ready} ready</b></div>`;
   }).join("");
+  const seeds = $("hq-seeds");
+  const grown = $("hq-grown");
+  if (seeds) {
+    const seedRows = ORDER.map((id) => {
+      const qty = state.seeds[id] || 0;
+      return `<div class="hq-row"><span>${CROPS[id].name}</span><b>${qty}</b></div>`;
+    });
+    const seedTotal = ORDER.reduce((sum, id) => sum + (state.seeds[id] || 0), 0);
+    seeds.innerHTML = seedRows.join("") + `<div class="hq-row"><span>Total</span><b>${seedTotal}</b></div>`;
+  }
+  if (grown) {
+    const grownRows = ORDER.map((id) => {
+      const held = state.goods[id] || 0;
+      const shares = (state.basis[id] && state.basis[id].qty) || 0;
+      const qty = Math.max(0, held - shares);
+      return `<div class="hq-row"><span>${CROPS[id].name}</span><b>${qty}</b></div>`;
+    });
+    const grownTotal = ORDER.reduce((sum, id) => {
+      const held = state.goods[id] || 0;
+      const shares = (state.basis[id] && state.basis[id].qty) || 0;
+      return sum + Math.max(0, held - shares);
+    }, 0);
+    grown.innerHTML = grownRows.join("") + `<div class="hq-row"><span>Total</span><b>${grownTotal}</b></div>`;
+  }
   const harvested = ORDER.map((id) => ({ id, qty: state.harvested[id] || 0 }));
   const total = harvested.reduce((sum, row) => sum + row.qty, 0);
   $("hq-history-empty").hidden = total > 0;
@@ -2741,24 +3437,99 @@ function paintHq() {
   hire.textContent = crew >= MAX_HANDS ? "Full" : `Hire ${nextCost}g`;
   hire.disabled = crew >= MAX_HANDS || state.gold < nextCost;
   fire.disabled = crew < 1;
+  const rankBox = $("hq-rank");
+  if (rankBox && !rankDrag) {
+    const list = state.cropRank || ORDER;
+    rankBox.innerHTML = list.map((id, index) => {
+      const seeds = state.seeds[id] || 0;
+      const name = CROPS[id].name;
+      return `<div class="rank-row" data-crop="${id}"><b>${index + 1}</b><span>${name}</span><em>${seeds} seed${seeds === 1 ? "" : "s"}</em><button type="button" class="rank-move" data-rank="up" data-crop="${id}" aria-label="Move ${name} up"${index === 0 ? " disabled" : ""}>↑</button><button type="button" class="rank-move" data-rank="down" data-crop="${id}" aria-label="Move ${name} down"${index === list.length - 1 ? " disabled" : ""}>↓</button></div>`;
+    }).join("");
+  }
+  const sellerHire = $("seller-hire");
+  const sellerFire = $("seller-fire");
+  const prices = $("seller-prices");
+  if (!sellerHire || !sellerFire || !prices) return;
+  $("seller-count").textContent = state.seller ? "Seller" : "No seller";
+  $("seller-meta").textContent = state.seller
+    ? "Watching the market. Leftovers sell when the price hits your mark."
+    : `${formatGold(SELLER_PRICE)} to hire. He sells leftover crops and leaves every full hundred alone.`;
+  sellerHire.textContent = state.seller ? "Hired" : `Hire ${formatGold(SELLER_PRICE)}`;
+  sellerHire.disabled = state.seller || state.gold < SELLER_PRICE;
+  sellerFire.disabled = !state.seller;
+  prices.hidden = !state.seller;
+  ORDER.forEach((id) => {
+    const now = $(`sell-now-${id}`);
+    const input = $(`sell-at-${id}`);
+    if (now) now.textContent = `now ${formatGold(state.prices[id])}`;
+    if (input && document.activeElement !== input) input.value = String(state.sellAt[id]);
+  });
 }
 
+function advanceQuests() {
+  if (!state || !Number.isInteger(state.quest)) return;
+  let moved = false;
+  while (state.quest < QUESTS.length && QUESTS[state.quest].done(state)) {
+    const quest = QUESTS[state.quest];
+    state.gold += quest.reward;
+    state.quest += 1;
+    log(`${quest.title} complete. +${quest.reward}g.`);
+    setStatus(`${quest.title} complete. +${quest.reward}g.`);
+    moved = true;
+  }
+  if (moved) save();
+}
+
+const SKY_MARK = {
+  clear: `<svg viewBox="0 0 16 16" aria-hidden="true"><rect x="7" y="1" width="2" height="3" fill="#e2a322"/><rect x="7" y="12" width="2" height="3" fill="#e2a322"/><rect x="1" y="7" width="3" height="2" fill="#e2a322"/><rect x="12" y="7" width="3" height="2" fill="#e2a322"/><rect x="3" y="3" width="2" height="2" fill="#e2a322"/><rect x="11" y="3" width="2" height="2" fill="#e2a322"/><rect x="3" y="11" width="2" height="2" fill="#e2a322"/><rect x="11" y="11" width="2" height="2" fill="#e2a322"/><rect x="5" y="5" width="6" height="6" fill="#f0c56a"/></svg>`,
+  moon: `<svg viewBox="0 0 16 16" aria-hidden="true"><rect x="6" y="2" width="5" height="2" fill="#f6edd8"/><rect x="5" y="4" width="6" height="2" fill="#f6edd8"/><rect x="4" y="6" width="5" height="4" fill="#f6edd8"/><rect x="5" y="10" width="6" height="2" fill="#f6edd8"/><rect x="6" y="12" width="5" height="2" fill="#f6edd8"/><rect x="8" y="4" width="4" height="8" fill="#c9bfae"/></svg>`,
+  rain: `<svg viewBox="0 0 16 16" aria-hidden="true"><rect x="4" y="3" width="8" height="3" fill="#8aa4b8"/><rect x="3" y="5" width="10" height="3" fill="#d5e4ee"/><rect x="4" y="10" width="2" height="3" fill="#4a7fa8"/><rect x="8" y="11" width="2" height="3" fill="#4a7fa8"/><rect x="12" y="10" width="2" height="3" fill="#4a7fa8"/></svg>`,
+  hail: `<svg viewBox="0 0 16 16" aria-hidden="true"><rect x="4" y="2" width="8" height="3" fill="#8aa4b8"/><rect x="3" y="4" width="10" height="3" fill="#d5e4ee"/><rect x="4" y="9" width="3" height="3" fill="#f6edd8"/><rect x="9" y="10" width="3" height="3" fill="#f6edd8"/><rect x="6" y="13" width="2" height="2" fill="#d5dbe0"/></svg>`,
+  pests: `<svg viewBox="0 0 16 16" aria-hidden="true"><rect x="2" y="6" width="2" height="2" fill="#5c4632"/><rect x="12" y="6" width="2" height="2" fill="#5c4632"/><rect x="3" y="9" width="2" height="2" fill="#5c4632"/><rect x="11" y="9" width="2" height="2" fill="#5c4632"/><rect x="5" y="4" width="6" height="3" fill="#6b8f3a"/><rect x="4" y="7" width="8" height="4" fill="#3e2c1c"/><rect x="6" y="11" width="4" height="2" fill="#6b8f3a"/><rect x="6" y="5" width="1" height="1" fill="#f6edd8"/><rect x="9" y="5" width="1" height="1" fill="#f6edd8"/></svg>`,
+};
+
 function paint() {
+  advanceQuests();
   const night = state.hour < 6 || state.hour >= 20;
+  const sky = state.weather && state.weather.day === state.day ? state.weather.id : "clear";
+  const skyName = { clear: "Clear", rain: "Rain", hail: "Hail", pests: "Pests" }[sky] || "Clear";
+  const markId = sky === "clear" && night ? "moon" : sky;
   document.body.classList.toggle("night", night);
   $("when").textContent = `Day ${state.day} · ${formatHour(state.hour)}`;
-  $("phase").textContent = night ? "Evening" : "Daylight";
+  $("phase").textContent = sky === "clear"
+    ? (night ? "Evening" : "Daylight")
+    : `${night ? "Evening" : "Daylight"} · ${skyName}`;
+  const mark = $("sky-mark");
+  if (mark && mark.dataset.sky !== markId) {
+    mark.dataset.sky = markId;
+    mark.innerHTML = SKY_MARK[markId];
+    mark.title = skyName;
+    mark.setAttribute("aria-label", skyName);
+  }
+  const layer = $("weather");
+  if (layer) {
+    layer.hidden = sky === "clear";
+    layer.dataset.sky = sky;
+  }
   $("gold").textContent = formatGold(state.gold);
+  $("exchange-gold").textContent = formatGold(state.gold);
   const can = $("can-pill");
+  const capacity = canCapacity(state.canLevel);
   can.dataset.water = String(state.water);
-  can.setAttribute("aria-label", `Watering can, ${state.water} of ${CAN_MAX} plots`);
+  can.setAttribute("aria-label", `Watering can, ${state.water} of ${capacity} plots`);
   $("can-count").textContent = String(state.water);
-  can.querySelectorAll(".can-drop").forEach((drop, index) => {
+  const drops = $("can-drops");
+  if (drops.children.length !== capacity) {
+    drops.innerHTML = Array.from({ length: capacity }, () => `<i class="can-drop"></i>`).join("");
+  }
+  drops.querySelectorAll(".can-drop").forEach((drop, index) => {
     drop.classList.toggle("full", index < state.water);
   });
-  $("net").textContent = `Net worth ${formatGold(netWorth())}`;
+  const worth = `Net worth ${formatGold(netWorth())}`;
+  $("net").textContent = worth;
+  $("exchange-net").textContent = worth;
   const toolBar = $("tool-bar");
-  toolBar.hidden = state.place === "city";
+  toolBar.hidden = state.place !== "farm";
   toolBar.querySelectorAll("[data-tool]").forEach((button) => {
     const tool = button.dataset.tool;
     const on = tool === "seed"
@@ -2770,6 +3541,15 @@ function paint() {
   toolBar.querySelectorAll("[data-seed-count]").forEach((node) => {
     node.textContent = String(state.seeds[node.dataset.seedCount] || 0);
   });
+  const questCard = $("quest");
+  const quest = QUESTS[state.quest];
+  questCard.hidden = !quest;
+  if (quest) {
+    $("quest-step").textContent = `${state.quest + 1} of ${QUESTS.length}`;
+    $("quest-title").textContent = quest.title;
+    $("quest-text").textContent = quest.text;
+    $("quest-reward").textContent = `+${quest.reward}g`;
+  }
   const landMeta = $("land-meta");
   const buyLand = $("buy-plot");
   const plotsOwned = ownedCount();
@@ -2780,6 +3560,22 @@ function paint() {
   buyLand.textContent = nextLand ? `${PLOT_PRICE}g` : "Full";
   buyLand.disabled = !nextLand || state.gold < PLOT_PRICE;
   buyLand.setAttribute("aria-label", nextLand ? `Buy a plot of land for ${PLOT_PRICE} gold` : "The acre is fully yours");
+
+  const canMeta = $("can-meta");
+  const upgradeCanBtn = $("upgrade-can");
+  const canLevel = state.canLevel | 0;
+  const canNow = canCapacity(canLevel);
+  if (canLevel >= CAN_UPGRADES) {
+    canMeta.textContent = `Holds ${canNow} plots. Fully upgraded.`;
+    upgradeCanBtn.textContent = "Max";
+    upgradeCanBtn.disabled = true;
+  } else {
+    const nextHold = canCapacity(canLevel + 1);
+    const nextCost = canUpgradeCost(canLevel);
+    canMeta.textContent = `Holds ${canNow} plots. Next holds ${nextHold}. Upgrade ${canLevel + 1} of ${CAN_UPGRADES}.`;
+    upgradeCanBtn.textContent = `${nextCost}g`;
+    upgradeCanBtn.disabled = state.gold < nextCost;
+  }
 
   const sprinklerMeta = $("sprinkler-meta");
   const buySprinklerBtn = $("buy-sprinkler");
@@ -2806,6 +3602,7 @@ function paint() {
     hireBtn.disabled = state.gold < cost;
   }
   paintHq();
+  paintWardrobe();
 
   const hammerMeta = $("hammer-meta");
   const buyHammerBtn = $("buy-hammer");
@@ -2850,11 +3647,12 @@ function paint() {
       buy.setAttribute("aria-label", `Buy ${count} ${crop.singular} seed${count === 1 ? "" : "s"} for ${cost} gold`);
     });
 
-    const tick = document.querySelector(`.tick[data-crop="${id}"]`);
-    tick.classList.toggle("active", state.marketCrop === id);
-    tick.querySelector("[data-px]").textContent = `${state.prices[id]}g`;
-    tick.querySelector("[data-tick-seeds]").textContent = String(state.seeds[id]);
-    tick.querySelector("[data-tick-goods]").textContent = String(state.goods[id]);
+    document.querySelectorAll(`.tick[data-crop="${id}"]`).forEach((tick) => {
+      tick.classList.toggle("active", state.marketCrop === id);
+      tick.querySelector("[data-px]").textContent = `${state.prices[id]}g`;
+      tick.querySelector("[data-tick-seeds]").textContent = String(state.seeds[id]);
+      tick.querySelector("[data-tick-goods]").textContent = String(state.goods[id]);
+    });
   });
 
   paintMap();
@@ -2866,61 +3664,103 @@ function paint() {
   const cost = Math.round(qty * state.prices[cropId]);
   const owned = state.goods[cropId];
   const allPayout = Math.round(owned * state.prices[cropId]);
-  const stock = marketDesk === "exchange";
-  $("market-title").textContent = stock ? "Stock Market" : "Market";
-  $("market-blurb").hidden = stock;
-  if (!stock) $("market-blurb").textContent = "Tab closes this. Q and E switch crops.";
-  $("trade-name").textContent = crop.name;
-  const priceNode = $("trade-price");
-  priceNode.textContent = `${state.prices[cropId]}g`;
-  priceNode.className = `trade-price ${directionOf(cropId)}`;
-  $("trade-meta").textContent = stock
-    ? `${versus(cropId)} · seed ${crop.seedPrice}g · you hold ${owned}`
-    : `Seed ${crop.seedPrice}g · you hold ${owned}`;
-  const pnl = $("trade-pnl");
-  pnl.hidden = !stock;
-  if (stock) {
-    const book = state.basis[cropId];
-    if (!book || book.qty < 1) {
-      pnl.innerHTML = `<span>Avg cost —</span><b>No open buys</b>`;
-    } else {
-      const avg = Math.round(book.cost / book.qty);
-      const open = Math.round(state.prices[cropId] * book.qty - book.cost);
-      pnl.innerHTML = `<span>Avg cost ${avg}g · ${book.qty} bought</span><b class="${open > 0 ? "up" : open < 0 ? "down" : ""}">${open > 0 ? "+" : ""}${formatGold(open)}</b>`;
-    }
-  }
-  $("legend-usual").hidden = !stock;
-  const showBook = stock && marketView === "trades";
-  $("market-tabs").hidden = !stock;
-  $("market-prices").hidden = showBook;
-  $("market-trades").hidden = !showBook;
-  $("market-tab-prices").classList.toggle("active", !showBook);
-  $("market-tab-trades").classList.toggle("active", showBook);
+  paintDesk($("market"), "tab", crop, cropId, qty, cost, owned, allPayout);
+  paintDesk($("exchange"), "exchange", crop, cropId, qty, cost, owned, allPayout);
   paintTrades();
-  document.querySelectorAll("#qty-picks button").forEach((button) => {
+  paintQuestBook();
+  document.querySelectorAll(".qty-picks button").forEach((button) => {
     button.classList.toggle("active", Number(button.dataset.qty) === readQty());
   });
   document.querySelectorAll("#seed-qty button").forEach((button) => {
     button.classList.toggle("active", Number(button.dataset.qty) === seedQty);
   });
-  $("legend").style.setProperty("--crop", crop.color);
 
-  const buy = $("buy");
-  const sell = $("sell");
-  const sellAll = $("sell-all");
-  buy.hidden = !stock;
-  buy.textContent = `Buy ${formatGold(cost)}`;
-  buy.disabled = !stock || state.gold < cost;
-  sell.textContent = `Sell ${formatGold(cost)}`;
-  sell.disabled = owned < qty;
-  sellAll.textContent = owned > 0 ? `Sell all ${owned} · ${formatGold(allPayout)}` : "Sell all";
-  sellAll.disabled = owned < 1;
-
-  if (marketOpen && !showBook) {
+  const showingPrices = marketOpen && marketDesk === "exchange" && exchangeView === "prices";
+  if (showingPrices) {
     requestAnimationFrame(() => {
-      if (marketOpen && marketView !== "trades") drawChart();
+      const view = marketDesk === "exchange" ? exchangeView : tabView;
+      if (marketOpen && view === "prices") drawCharts();
     });
   }
+}
+
+function paintDesk(root, desk, crop, cropId, qty, cost, owned, allPayout) {
+  if (!root) return;
+  const stock = desk === "exchange";
+  const view = stock ? exchangeView : tabView;
+  const showQuests = !stock && view === "quests";
+  const showBook = stock && view === "trades";
+  const showPrices = !showBook && !showQuests;
+  const q = (sel) => root.querySelector(sel);
+  q(".market-title").textContent = stock ? "Stock Market" : "Market";
+  const blurb = q(".market-blurb");
+  if (blurb) blurb.hidden = showQuests;
+  const prices = q(".market-layout");
+  const bookPage = q(".trade-book");
+  const quests = q(".quest-book");
+  if (prices) prices.hidden = !showPrices;
+  if (bookPage) bookPage.hidden = !showBook;
+  if (quests) quests.hidden = !showQuests;
+  const tabPrices = root.querySelector("[id$='tab-prices']");
+  const tabTrades = root.querySelector("[id$='tab-trades']");
+  const tabQuests = root.querySelector("[id$='tab-quests']");
+  if (tabPrices) tabPrices.classList.toggle("active", showPrices);
+  if (tabTrades) tabTrades.classList.toggle("active", showBook);
+  if (tabQuests) tabQuests.classList.toggle("active", showQuests);
+  if (stock) {
+    const lot = readQty();
+    root.querySelectorAll(".quote").forEach((card) => {
+      const id = card.dataset.crop;
+      const item = CROPS[id];
+      if (!item) return;
+      const held = state.goods[id];
+      const lotCost = Math.round(lot * state.prices[id]);
+      card.classList.toggle("selected", id === state.marketCrop);
+      card.querySelector(".trade-name").textContent = item.name;
+      const priceNode = card.querySelector(".trade-price");
+      priceNode.textContent = `${Math.round(state.prices[id])}g`;
+      priceNode.className = `trade-price ${directionOf(id)}`;
+      card.querySelector(".trade-meta").textContent = `${versus(id)} · you hold ${held}`;
+      const pnl = card.querySelector(".trade-pnl");
+      const book = state.basis[id];
+      if (!book || book.qty < 1) {
+        pnl.innerHTML = `<span>Avg cost —</span><b>No open buys</b>`;
+      } else {
+        const avg = Math.round(book.cost / book.qty);
+        const open = Math.round(state.prices[id] * book.qty - book.cost);
+        pnl.innerHTML = `<span>Avg cost ${avg}g · ${book.qty} bought</span><b class="${open > 0 ? "up" : open < 0 ? "down" : ""}">${open > 0 ? "+" : ""}${formatGold(open)}</b>`;
+      }
+      const buy = card.querySelector(".buy-btn");
+      const sell = card.querySelector(".sell-btn");
+      const sellAll = card.querySelector(".sell-all-btn");
+      buy.textContent = `Buy ${formatGold(lotCost)}`;
+      buy.disabled = state.gold < lotCost;
+      sell.textContent = `Sell ${formatGold(lotCost)}`;
+      sell.disabled = held < lot;
+      sellAll.textContent = held > 0 ? `Sell all ${held}` : "Sell all";
+      sellAll.disabled = held < 1;
+    });
+    return;
+  }
+  root.querySelectorAll(".stall").forEach((card) => {
+    const id = card.dataset.crop;
+    const item = CROPS[id];
+    if (!item) return;
+    const held = state.goods[id];
+    const payout = Math.round(held * state.prices[id]);
+    card.querySelector(".trade-name").textContent = item.name;
+    const priceNode = card.querySelector(".trade-price");
+    priceNode.textContent = `${Math.round(state.prices[id])}g`;
+    priceNode.className = `trade-price ${directionOf(id)}`;
+    const seeds = state.seeds[id];
+    card.querySelector(".trade-meta").textContent = `${seeds} seed${seeds === 1 ? "" : "s"} · you hold ${held}`;
+    const sell = card.querySelector(".sell-btn");
+    const sellAll = card.querySelector(".sell-all-btn");
+    sell.textContent = "Sell 1";
+    sell.disabled = held < 1;
+    sellAll.textContent = held > 0 ? `Sell all ${held} · ${formatGold(payout)}` : "Sell all";
+    sellAll.disabled = held < 1;
+  });
 }
 
 function fillTile(tile, x, y) {
@@ -2949,8 +3789,11 @@ function fillTile(tile, x, y) {
     if (x === FIELD.x + FIELD.w - 1) edges.push("edge-e");
     tile.className = `tile field ${edges.join(" ")}`;
     tile.innerHTML = `<span class="crop-icon"></span><span class="plot-label"></span>`;
+  } else if (role === "stall") {
+    tile.innerHTML = `<span class="prop stall-prop"><img src="art/stall.png?v=1" alt=""></span>`;
+    tile.setAttribute("aria-label", "Market stall");
   } else if (role === "shop" && y === 6) {
-    tile.innerHTML = `<span class="prop shop-prop"><img src="art/stall.png?v=1" alt=""></span>`;
+    tile.innerHTML = `<span class="prop shop-prop"><img src="art/trailer.png?v=1" alt=""></span>`;
     tile.setAttribute("aria-label", "Trailer Supply");
   } else if (role === "shop") {
     tile.setAttribute("aria-label", "Trailer Supply");
@@ -2960,22 +3803,31 @@ function fillTile(tile, x, y) {
   } else if (role === "house") {
     tile.setAttribute("aria-label", "Cottage");
   } else if (role === "tree") {
-    tile.innerHTML = `<span class="prop tree-prop"><img src="art/tree.png?v=1" alt=""></span>`;
+    const sway = ((x * 3 + y) % 4) * 0.28;
+    tile.innerHTML = `<span class="prop tree-prop"><span class="tree-wind" style="--sway:${sway}s"><img src="art/tree.png?v=1" alt=""></span></span>`;
     tile.setAttribute("aria-label", "Tree");
   } else if (role === "well") {
     tile.innerHTML = `<span class="prop well-prop"><img src="art/well.png?v=1" alt=""></span>`;
     tile.setAttribute("aria-label", "Well");
   } else if (role === "grass") {
-    const edge = y === 0 || y === MAP_ROWS - 1 || x === 0 || x === MAP_COLS - 1;
-    tile.classList.add(edge ? "meadow" : "yard");
+    if (state.place === "farm") {
+      const edge = y === 0 || y === MAP_ROWS - 1 || x === 0 || x === MAP_COLS - 1;
+      tile.classList.add(edge ? "meadow" : "yard");
+    }
   } else if (role === "path") {
     tile.classList.add("worn");
   }
 }
 
+function scenePlace() {
+  if (state.place === "city") return "city";
+  if (state.place === "orchard") return "orchard";
+  return "farm";
+}
+
 function paintPlace() {
   const scene = $("farm-scene");
-  if (scene) scene.dataset.place = state.place === "city" ? "city" : "farm";
+  if (scene) scene.dataset.place = scenePlace();
   tiles.forEach((tile) => fillTile(tile, Number(tile.dataset.x), Number(tile.dataset.y)));
 }
 
@@ -2985,7 +3837,7 @@ function buildWorld() {
   scene.style.setProperty("--cols", String(MAP_COLS));
   scene.style.setProperty("--rows", String(MAP_ROWS));
   scene.style.transform = "";
-  scene.dataset.place = state.place === "city" ? "city" : "farm";
+  scene.dataset.place = scenePlace();
   for (let y = 0; y < MAP_ROWS; y += 1) {
     for (let x = 0; x < MAP_COLS; x += 1) {
       const tile = document.createElement("div");
@@ -3000,7 +3852,7 @@ function buildWorld() {
   const player = document.createElement("div");
   player.id = "player";
   player.className = "player";
-  player.innerHTML = FARMER;
+  player.innerHTML = farmerMarkup();
   scene.append(player);
 
   const hand = document.createElement("div");
@@ -3031,7 +3883,6 @@ function buildWorld() {
 
   const seeds = $("seeds");
   const bulkSeeds = $("monsango-seeds");
-  const ticker = $("ticker");
   ORDER.forEach((id) => {
     const crop = CROPS[id];
     [seeds, bulkSeeds].forEach((list) => {
@@ -3040,7 +3891,7 @@ function buildWorld() {
       card.dataset.seed = id;
       card.innerHTML = `
       <button type="button" class="seed-pick" data-pick="${id}">
-        <span class="seed-ico">${ICONS[id]}</span>
+        <span class="seed-ico"><img src="${READY_ART[`${id}Ready`]}" alt=""></span>
         <span class="seed-copy">
           <strong>${crop.name}</strong>
           <span class="seed-meta" data-seed-meta="${id}"></span>
@@ -3050,18 +3901,21 @@ function buildWorld() {
       list.append(card);
     });
 
-    const tick = document.createElement("button");
-    tick.type = "button";
-    tick.className = "tick";
-    tick.dataset.crop = id;
-    tick.innerHTML = `
+    const tickers = document.querySelectorAll(".ticker");
+    tickers.forEach((ticker) => {
+      const tick = document.createElement("button");
+      tick.type = "button";
+      tick.className = "tick";
+      tick.dataset.crop = id;
+      tick.innerHTML = `
       <span class="tick-top"><span>${crop.name}</span></span>
       <span class="tick-px" data-px="${id}"></span>
       <span class="tick-hold">
         <span><em>Seed</em> <b data-tick-seeds="${id}">0</b></span>
         <span><em>Crop</em> <b data-tick-goods="${id}">0</b></span>
       </span>`;
-    ticker.append(tick);
+      ticker.append(tick);
+    });
   });
 }
 
@@ -3079,25 +3933,65 @@ function onSeedListClick(event, qty) {
   paint();
 }
 
+function chooseTrade(button) {
+  const id = button.dataset.crop;
+  if (CROPS[id]) state.marketCrop = id;
+}
+
 function bind() {
-  $("buy").addEventListener("click", buyGoods);
-  $("sell").addEventListener("click", () => sellGoods(false));
-  $("sell-all").addEventListener("click", () => sellGoods(true));
+  document.querySelectorAll(".buy-btn").forEach((button) => button.addEventListener("click", () => {
+    chooseTrade(button);
+    buyGoods();
+  }));
+  document.querySelectorAll(".sell-btn").forEach((button) => button.addEventListener("click", () => {
+    chooseTrade(button);
+    sellGoods(false);
+  }));
+  document.querySelectorAll(".sell-all-btn").forEach((button) => button.addEventListener("click", () => {
+    chooseTrade(button);
+    sellGoods(true);
+  }));
   $("market-tab-prices").addEventListener("click", () => {
-    marketView = "prices";
+    tabView = "prices";
     paint();
   });
-  $("market-tab-trades").addEventListener("click", () => {
-    marketView = "trades";
+  $("market-tab-quests").addEventListener("click", () => {
+    tabView = "quests";
     paint();
   });
-  $("qty-picks").addEventListener("click", (event) => {
-    const button = event.target.closest("[data-qty]");
+  $("exchange-tab-prices").addEventListener("click", () => {
+    exchangeView = "prices";
+    paint();
+  });
+  $("exchange-tab-trades").addEventListener("click", () => {
+    exchangeView = "trades";
+    paint();
+  });
+  $("quest-list").addEventListener("click", (event) => {
+    const block = event.target.closest("[data-block]");
+    if (block) {
+      const id = block.dataset.block;
+      const wasOpen = block.getAttribute("aria-expanded") === "true";
+      questBlocksSet.add(id);
+      if (wasOpen) questBlocksOpen.delete(id);
+      else questBlocksOpen.add(id);
+      paint();
+      return;
+    }
+    const button = event.target.closest("[data-quest]");
     if (!button) return;
-    const qty = Number(button.dataset.qty);
-    if (!QTY_STEPS.includes(qty)) return;
-    tradeQty = qty;
+    questPick = Number(button.dataset.quest);
     paint();
+  });
+  document.querySelectorAll(".qty-picks").forEach((row) => {
+    row.addEventListener("click", (event) => {
+      const button = event.target.closest("[data-qty]");
+      if (!button) return;
+      const qty = Number(button.dataset.qty);
+      if (!QTY_STEPS.includes(qty)) return;
+      tradeQty = qty;
+      paint();
+    });
   });
   $("open-menu").addEventListener("click", openMenu);
   $("menu-continue").addEventListener("click", () => {
@@ -3124,6 +4018,7 @@ function bind() {
     doOffer();
   });
   $("buy-plot").addEventListener("click", buyPlot);
+  $("upgrade-can").addEventListener("click", upgradeCan);
   $("buy-sprinkler").addEventListener("click", buySprinkler);
   $("buy-hammer").addEventListener("click", buyHammer);
   $("hammer").addEventListener("click", toggleBuild);
@@ -3142,6 +4037,15 @@ function bind() {
     if (event.target.id === "shop") closeShop();
   });
   $("shop-close").addEventListener("click", closeShop);
+  $("wardrobe").addEventListener("click", (event) => {
+    if (event.target.id === "wardrobe") closeWardrobe();
+  });
+  $("wardrobe-close").addEventListener("click", closeWardrobe);
+  $("wardrobe-looks").addEventListener("click", (event) => {
+    const button = event.target.closest(".look-pick");
+    if (!button) return;
+    wearLook(button.dataset.look);
+  });
   $("monsango").addEventListener("click", (event) => {
     if (event.target.id === "monsango") closeMonsango();
   });
@@ -3152,6 +4056,10 @@ function bind() {
   $("hq-close").addEventListener("click", closeHq);
   $("hq-tab-active").addEventListener("click", () => {
     hqView = "active";
+    paint();
+  });
+  $("hq-tab-crew").addEventListener("click", () => {
+    hqView = "crew";
     paint();
   });
   $("hq-tab-history").addEventListener("click", () => {
@@ -3177,30 +4085,73 @@ function bind() {
     if (!state.hands.length) return;
     dismissFarmhand(state.hands.length - 1);
   });
+  $("hq-rank").addEventListener("click", (event) => {
+    const button = event.target.closest("[data-rank]");
+    if (!button || rankDrag) return;
+    moveCropRank(button.dataset.crop, button.dataset.rank === "up" ? -1 : 1);
+  });
+  $("hq-rank").addEventListener("pointerdown", (event) => {
+    if (event.button !== 0 || event.target.closest(".rank-move")) return;
+    const row = event.target.closest(".rank-row");
+    const box = $("hq-rank");
+    if (!row || !box) return;
+    rankDrag = { id: row.dataset.crop, row, box, startY: event.clientY, y: event.clientY, to: [...box.querySelectorAll(".rank-row")].indexOf(row) };
+    row.classList.add("dragging");
+    row.setPointerCapture(event.pointerId);
+  });
+  $("hq-rank").addEventListener("pointermove", (event) => {
+    if (!rankDrag) return;
+    rankDrag.y = event.clientY;
+    layoutRankDrag();
+  });
+  $("hq-rank").addEventListener("pointerup", endRankDrag);
+  $("hq-rank").addEventListener("pointercancel", () => clearRankDrag());
+  window.addEventListener("pointerup", endRankDrag);
+  $("seller-hire").addEventListener("click", hireSeller);
+  $("seller-fire").addEventListener("click", fireSeller);
+  ORDER.forEach((id) => {
+    $(`sell-at-${id}`).addEventListener("change", (event) => {
+      const input = event.target;
+      setSellPrice(id, input.value);
+      if (document.activeElement !== input) input.value = String(state.sellAt[id]);
+    });
+  });
   $("market").addEventListener("click", (event) => {
     if (event.target.id === "market") closeMarket();
   });
+  $("exchange").addEventListener("click", (event) => {
+    if (event.target.id === "exchange") closeMarket();
+  });
   $("market-close").addEventListener("click", closeMarket);
-  $("ticker").addEventListener("click", (event) => {
-    const button = event.target.closest(".tick");
-    if (!button) return;
-    state.marketCrop = button.dataset.crop;
-    save();
-    paint();
+  $("exchange-close").addEventListener("click", closeMarket);
+  document.querySelectorAll(".ticker").forEach((ticker) => {
+    ticker.addEventListener("click", (event) => {
+      const button = event.target.closest(".tick");
+      if (!button) return;
+      state.marketCrop = button.dataset.crop;
+      save();
+      paint();
+    });
   });
 
-  const chart = $("chart");
-  chart.addEventListener("mousemove", (event) => {
-    const rect = chart.getBoundingClientRect();
-    hoverX = event.clientX - rect.left;
-    positionTip();
-  });
-  chart.addEventListener("mouseleave", () => {
-    hoverX = null;
-    $("chart-tip").hidden = true;
+  document.querySelectorAll(".price-chart").forEach((chart) => {
+    chart.addEventListener("mousemove", (event) => {
+      const rect = chart.getBoundingClientRect();
+      hoverChart = chart;
+      hoverX = event.clientX - rect.left;
+      positionTip();
+    });
+    chart.addEventListener("mouseleave", () => {
+      if (hoverChart === chart) {
+        hoverChart = null;
+        hoverX = null;
+      }
+      const tip = chart.parentElement.querySelector(".chart-tip");
+      if (tip) tip.hidden = true;
+    });
   });
   window.addEventListener("resize", () => {
-    if (marketOpen) drawChart();
+    if (marketOpen) drawCharts();
   });
   window.addEventListener("keydown", (event) => {
     if (menuOpen) return;
@@ -3211,17 +4162,18 @@ function bind() {
       if (!acting) toggleMarket();
       return;
     }
-    if (event.code === "Escape" && buildMode && !shopOpen && !monsangoOpen && !hqOpen && !marketOpen) {
+    if (event.code === "Escape" && buildMode && !shopOpen && !wardrobeOpen && !monsangoOpen && !hqOpen && !marketOpen) {
       event.preventDefault();
       if (buildPick) buildPick = null;
       else buildMode = false;
       paint();
       return;
     }
-    if (shopOpen || monsangoOpen || hqOpen) {
+    if (shopOpen || wardrobeOpen || monsangoOpen || hqOpen) {
       if (event.code === "Escape") {
         event.preventDefault();
         if (shopOpen) closeShop();
+        if (wardrobeOpen) closeWardrobe();
         if (monsangoOpen) closeMonsango();
         if (hqOpen) closeHq();
       }
@@ -3232,10 +4184,10 @@ function bind() {
       if (event.code === "Escape") {
         event.preventDefault();
         closeMarket();
-      } else if (event.code === "KeyQ") {
+      } else if (marketDesk === "exchange" && event.code === "KeyQ") {
         event.preventDefault();
         cycleMarketCrop(-1);
-      } else if (event.code === "KeyE") {
+      } else if (marketDesk === "exchange" && event.code === "KeyE") {
         event.preventDefault();
         cycleMarketCrop(1);
       }
@@ -3263,6 +4215,36 @@ function bind() {
   window.addEventListener("blur", () => held.clear());
 }
 
+let rustleAt = 0;
+const rustling = new Set();
+
+function tickRustle(now) {
+  if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  for (const node of rustling) {
+    if (!node.isConnected) rustling.delete(node);
+  }
+  if (rustling.size >= 2 || now < rustleAt) return;
+  const trees = [...document.querySelectorAll("#farm-scene .tree-wind")].filter((node) => !rustling.has(node));
+  if (!trees.length) return;
+  const room = 2 - rustling.size;
+  const count = Math.min(room, trees.length, Math.random() < 0.4 ? 1 : 2);
+  for (let i = 0; i < count; i += 1) {
+    const index = Math.floor(Math.random() * trees.length);
+    const node = trees.splice(index, 1)[0];
+    const img = node.querySelector("img");
+    if (!img) continue;
+    rustling.add(node);
+    img.classList.remove("rustling");
+    void img.offsetWidth;
+    img.classList.add("rustling");
+    img.addEventListener("animationend", () => {
+      img.classList.remove("rustling");
+      rustling.delete(node);
+    }, { once: true });
+  }
+  rustleAt = now + 450;
+}
+
 function loop(now) {
   const dt = Math.min(1000, Math.max(0, now - lastNow));
   lastNow = now;
@@ -3270,6 +4252,7 @@ function loop(now) {
   if (updateMovement(seconds, now)) paintPlayer();
   updateHand(seconds);
   paintHand();
+  tickRustle(now);
   if (!document.hidden && !menuOpen) {
     accumulator += dt;
     let steps = 0;
