@@ -100,6 +100,17 @@ button { cursor: pointer; }
   opacity: 0.75;
 }
 
+.sky-mark {
+  width: 22px;
+  height: 22px;
+  flex: none;
+}
+.sky-mark svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
 .clock button,
 .tab {
   border: 0;
@@ -139,14 +150,29 @@ body.night .tab { color: #f6edd8; }
   overflow: hidden;
   background:
     radial-gradient(900px 420px at 50% -8%, rgba(255, 220, 150, 0.95), transparent 58%),
-    linear-gradient(180deg, #8ec8ea 0 18%, rgba(213, 238, 180, 0) 42%),
-    url("art/meadow-field.png?v=5") center bottom / cover no-repeat;
+    linear-gradient(180deg, #8ec8ea 0 18%, rgba(213, 238, 180, 0) 42%);
   image-rendering: pixelated;
+}
+
+.menu-overlay::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background-color: #6aaa3c;
+  background-image: url("art/meadow-1.png?v=1");
+  background-repeat: no-repeat;
+  background-position: center bottom;
+  background-size: cover;
+  image-rendering: pixelated;
+  animation: grass-sway 10s linear infinite;
+  pointer-events: none;
 }
 
 .menu-scene {
   position: absolute;
   inset: 0;
+  z-index: 1;
   pointer-events: none;
 }
 
@@ -356,6 +382,51 @@ body.building .farm-grid { cursor: crosshair; }
   box-shadow: 0 6px 0 #5c3a22;
 }
 
+.quest-card[hidden] { display: none; }
+
+.quest-card {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 7;
+  width: 230px;
+  padding: 10px 12px 12px;
+  border: 3px solid #6b3e24;
+  border-radius: 16px;
+  background: #fffaf0;
+  color: #3e2c1c;
+  box-shadow: 0 4px 0 #5c3a22;
+  pointer-events: none;
+}
+
+.quest-top {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  color: #8a7764;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.quest-card strong {
+  display: block;
+  margin-top: 4px;
+  font-size: 16px;
+}
+
+.quest-card p {
+  margin: 4px 0 8px;
+  font-size: 14px;
+  line-height: 1.3;
+}
+
+.quest-card #quest-reward {
+  font-weight: 800;
+  color: #2c7a45;
+}
+
 .tool-bar[hidden] { display: none; }
 
 .tool-bar {
@@ -469,6 +540,48 @@ body.building .farm-grid { cursor: crosshair; }
   background: #e4c07a;
 }
 
+.weather {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+  overflow: hidden;
+}
+.weather[hidden] { display: none; }
+.weather[data-sky="rain"] {
+  background:
+    repeating-linear-gradient(108deg, transparent 0 12px, rgba(90, 150, 200, 0.45) 12px 14px),
+    rgba(150, 190, 220, 0.18);
+  background-size: 48px 80px, auto;
+  animation: weather-fall 0.7s linear infinite;
+}
+.weather[data-sky="hail"] {
+  background:
+    repeating-linear-gradient(100deg, transparent 0 18px, rgba(255, 255, 255, 0.85) 18px 21px),
+    rgba(180, 196, 210, 0.22);
+  background-size: 64px 90px, auto;
+  animation: weather-fall 0.35s linear infinite;
+}
+.weather[data-sky="pests"]::before {
+  content: "";
+  position: absolute;
+  inset: -30%;
+  background-image:
+    radial-gradient(circle at 4px 4px, #3e2c1c 2px, transparent 2.5px),
+    radial-gradient(circle at 18px 14px, #5c4632 1.5px, transparent 2px);
+  background-size: 42px 32px;
+  animation: pest-drift 9s linear infinite;
+}
+.weather[data-sky="pests"] { background: rgba(120, 90, 40, 0.08); }
+@keyframes weather-fall {
+  from { background-position: 0 0, 0 0; }
+  to { background-position: -28px 80px, 0 0; }
+}
+@keyframes pest-drift {
+  from { transform: translate(0, 0); }
+  to { transform: translate(-42px, 32px); }
+}
+
 body.night .farm-grid,
 body.night .player { filter: saturate(0.85) brightness(0.72); }
 
@@ -494,8 +607,7 @@ body.night .player { filter: saturate(0.85) brightness(0.72); }
 .tile.bed,
 .tile.shop,
 .tile.tree,
-.tile.well,
-.tile.field.unowned {
+.tile.well {
   background-color: #93be62;
   background-image:
     radial-gradient(circle at 22% 30%, #5a9434 0 2px, transparent 3px),
@@ -503,12 +615,43 @@ body.night .player { filter: saturate(0.85) brightness(0.72); }
     radial-gradient(circle at 46% 78%, #3f7a30 0 1.5px, transparent 2.5px);
 }
 
+.farm-scene[data-place="orchard"] .farm-grid {
+  background: #6d9a3c;
+}
+
+.farm-scene[data-place="orchard"] .tile.grass {
+  background-color: #8fbf58;
+  background-image:
+    radial-gradient(circle at 24% 36%, #6a9a34 0 2px, transparent 3px),
+    radial-gradient(circle at 68% 70%, #d7e7a8 0 1.5px, transparent 2.5px);
+}
+
 .farm-scene[data-place="farm"] .farm-grid {
   background-color: #6aaa3c;
-  background-image: url("art/meadow-field.png?v=5");
+  background-image: url("art/meadow-1.png?v=1");
   background-repeat: no-repeat;
   background-size: calc(var(--tile) * var(--cols)) calc(var(--tile) * var(--rows));
   image-rendering: pixelated;
+  animation: grass-sway 10s linear infinite;
+}
+
+@keyframes grass-sway {
+  0%, 5% { background-image: url("art/meadow-1.png?v=1"); }
+  6%, 11% { background-image: url("art/meadow-2.png?v=1"); }
+  12%, 17% { background-image: url("art/meadow-3.png?v=1"); }
+  18%, 23% { background-image: url("art/meadow-2.png?v=1"); }
+  24%, 100% { background-image: url("art/meadow-1.png?v=1"); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .farm-scene[data-place="farm"] .farm-grid,
+  .menu-overlay::before,
+  .prop.tree-prop img,
+  .tree-wind,
+  .tree-wind img,
+  .menu-tree {
+    animation: none;
+  }
 }
 
 .tile.yard,
@@ -597,7 +740,20 @@ body.night .player { filter: saturate(0.85) brightness(0.72); }
   box-shadow: inset 0 0 0 1px rgba(90, 50, 20, 0.2);
 }
 
+.tile.field:not(.tilled) {
+  background-color: #e4d2a8;
+  background-image: url("art/dirt-plain.png?v=1");
+  background-repeat: no-repeat;
+  background-size: 100% 100%;
+  image-rendering: pixelated;
+}
+
 .tile.field.unowned {
+  background-color: #6aaa3c;
+  background-image: url("art/dirt-unbought.png?v=3");
+  background-repeat: no-repeat;
+  background-size: 100% 100%;
+  image-rendering: pixelated;
   box-shadow: none;
   border: 0;
   cursor: default;
@@ -609,21 +765,19 @@ body.night .player { filter: saturate(0.85) brightness(0.72); }
 .tile.field.edge-e { border-right: 4px solid #6b3e24; }
 
 .tile.field.tilled {
-  background-color: #b07840;
-  background-image: repeating-linear-gradient(
-    180deg,
-    rgba(70, 36, 12, 0.38) 0 2px,
-    transparent 2px 8px
-  );
+  background-color: #c4a574;
+  background-image: url("art/dirt-tilled.png?v=2");
+  background-repeat: no-repeat;
+  background-size: 100% 100%;
+  image-rendering: pixelated;
 }
 
 .tile.field.watered {
-  background-color: #6e4324;
-  background-image: repeating-linear-gradient(
-    180deg,
-    rgba(30, 16, 8, 0.35) 0 2px,
-    transparent 2px 8px
-  );
+  background-color: #6a4428;
+  background-image: url("art/dirt-watered.png?v=2");
+  background-repeat: no-repeat;
+  background-size: 100% 100%;
+  image-rendering: pixelated;
 }
 
 .tile.field .crop-icon {
@@ -688,8 +842,8 @@ body.night .player { filter: saturate(0.85) brightness(0.72); }
 .prop svg { width: 100%; height: 100%; display: block; }
 
 .prop.house-prop {
-  width: calc(var(--tile) * 3);
-  height: calc(var(--tile) * 3);
+  width: calc(var(--tile) * 4);
+  height: calc(var(--tile) * 4);
   left: 0;
   right: auto;
   top: auto;
@@ -706,8 +860,8 @@ body.night .player { filter: saturate(0.85) brightness(0.72); }
 }
 
 .prop.shop-prop {
-  width: calc(var(--tile) * 2);
-  height: calc(var(--tile) * 2);
+  width: calc(var(--tile) * 4);
+  height: calc(var(--tile) * 4);
   left: 50%;
   right: auto;
   bottom: 0;
@@ -735,12 +889,49 @@ body.night .player { filter: saturate(0.85) brightness(0.72); }
   z-index: 3;
 }
 
-.prop.tree-prop img {
+.prop.tree-prop img,
+.tree-wind img {
   width: 100%;
   height: 100%;
   display: block;
   object-fit: contain;
   image-rendering: pixelated;
+  transform-origin: 50% 100%;
+}
+
+.tree-wind {
+  display: block;
+  width: 100%;
+  height: 100%;
+  transform-origin: 50% 100%;
+  animation: tree-sway 10s ease-in-out infinite;
+  animation-delay: var(--sway, 0s);
+}
+
+.tree-wind img.rustling {
+  animation: tree-rustle 1.6s ease-in-out;
+}
+
+.menu-tree {
+  transform-origin: 50% 100%;
+  animation: tree-sway 10s ease-in-out infinite;
+}
+
+.menu-tree-l { animation-delay: 0.15s; }
+.menu-tree-r { animation-delay: 0.5s; }
+
+@keyframes tree-sway {
+  0%, 4% { transform: rotate(0deg); }
+  12% { transform: rotate(2deg); }
+  20% { transform: rotate(-0.7deg); }
+  28%, 100% { transform: rotate(0deg); }
+}
+
+@keyframes tree-rustle {
+  0% { transform: rotate(0deg); }
+  35% { transform: rotate(1.7deg); }
+  68% { transform: rotate(-1.2deg); }
+  100% { transform: rotate(0deg); }
 }
 
 .flower-prop {
@@ -879,8 +1070,8 @@ body.night .player { filter: saturate(0.85) brightness(0.72); }
 }
 
 @keyframes farmer-walk {
-  0%, 100% { translate: 0 0; rotate: -3deg; }
-  50% { translate: 0 -1px; rotate: 3deg; }
+  0%, 100% { translate: 0 0; }
+  50% { translate: 0 -4px; }
 }
 
 @keyframes hoe-chop {
@@ -1277,6 +1468,42 @@ body.night .player { filter: saturate(0.85) brightness(0.72); }
 
 .shop-overlay[hidden] { display: none; }
 
+.wardrobe-card { width: min(520px, calc(100vw - 32px)); }
+.wardrobe-card h3 {
+  margin: 14px 0 8px;
+  font-family: var(--sans);
+  font-size: 16px;
+}
+.look-row {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.look-pick {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 8px 10px;
+  border: 3px solid transparent;
+  border-radius: 16px;
+  background: #fffaf0;
+  color: #3e2c1c;
+  font-family: var(--sans);
+  font-weight: 700;
+}
+.look-pick img {
+  width: 72px;
+  height: 84px;
+  object-fit: contain;
+  image-rendering: pixelated;
+}
+.look-pick.selected {
+  border-color: #3f8f4a;
+  background: #e7f3df;
+}
+
 .shop-card {
   width: min(440px, 100%);
   padding: 18px 18px 10px;
@@ -1295,8 +1522,31 @@ body.night .player { filter: saturate(0.85) brightness(0.72); }
   margin-bottom: 6px;
 }
 
+#exchange .head-side {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-left: auto;
+}
+
+.desk-purse { text-align: right; color: var(--ink); }
+
+.desk-purse strong {
+  display: block;
+  font-size: 26px;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.1;
+}
+
+.desk-purse #exchange-net {
+  font-family: var(--sans);
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--soft);
+}
+
 .hq-card {
-  width: min(640px, calc(100vw - 32px));
+  width: min(920px, calc(100vw - 32px));
   max-height: calc(100vh - 48px);
   overflow: auto;
 }
@@ -1305,7 +1555,66 @@ body.night .player { filter: saturate(0.85) brightness(0.72); }
   font-family: var(--sans);
   font-size: 16px;
 }
+.rank-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 6px 0;
+  border-bottom: 1px solid rgba(90, 60, 30, 0.12);
+  font-family: var(--sans);
+  position: relative;
+  cursor: grab;
+  user-select: none;
+  touch-action: none;
+}
+.rank-row b {
+  width: 1.2em;
+}
+.rank-row span {
+  flex: 1;
+  font-weight: 700;
+}
+.rank-row em {
+  color: #6b5344;
+  font-style: normal;
+}
+.rank-row.dragging {
+  z-index: 2;
+  cursor: grabbing;
+  background: #fffaf0;
+  box-shadow: 0 8px 18px rgba(42, 28, 16, 0.16);
+}
+.rank-move {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: #6b3e24;
+  color: #fffaf0;
+  font-family: var(--sans);
+  font-size: 16px;
+  line-height: 28px;
+  font-weight: 700;
+  cursor: pointer;
+}
+#hq-active,
+#hq-crew {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px 32px;
+  align-items: start;
+}
+#hq-active h3,
+#hq-crew h3 {
+  margin-top: 4px;
+}
+@media (max-width: 720px) {
+  #hq-active,
+  #hq-crew { grid-template-columns: 1fr; }
+}
 #hq-active[hidden],
+#hq-crew[hidden],
 #hq-history[hidden] { display: none; }
 .hq-row {
   display: flex;
@@ -1344,9 +1653,39 @@ body.night .player { filter: saturate(0.85) brightness(0.72); }
   font-weight: 700;
   color: #fffaf0;
 }
-#hq-fire { background: #c4473a; }
-#hq-hire { background: #3f8f4a; }
+#hq-fire, #seller-fire { background: #c4473a; }
+#hq-hire, #seller-hire { background: #3f8f4a; }
 .land-offer.hq-crew { background: transparent; }
+#seller-prices[hidden] { display: none; }
+#seller-prices {
+  margin-top: 8px;
+}
+.sell-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 6px 0;
+  border-bottom: 1px solid rgba(90, 60, 30, 0.12);
+  font-family: var(--sans);
+}
+.sell-row label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #6b5344;
+}
+.sell-row input {
+  width: 72px;
+  padding: 6px 8px;
+  border: 2px solid #c4a574;
+  border-radius: 10px;
+  background: #fffaf0;
+  color: #3e2c1c;
+  font-family: var(--sans);
+  font-weight: 700;
+  font-size: 15px;
+}
 
 .shop-card h2 {
   margin: 0;
@@ -1371,19 +1710,28 @@ body.night .player { filter: saturate(0.85) brightness(0.72); }
   display: flex;
   gap: 8px;
   align-items: center;
-  margin: 4px 0 12px;
+  margin: 0 0 8px;
+  padding: 0;
+  border-radius: 12px;
+  background: transparent;
+}
+
+.shop-card .land-offer .seed-copy {
+  flex: 1;
+  min-width: 0;
   padding: 8px;
   border-radius: 12px;
-  background: #fff3d4;
+  background: #fffaf0;
 }
 
 #buy-plot,
+#upgrade-can,
 #buy-sprinkler,
 #buy-hammer,
 #hire-farmhand {
   border: 0;
   border-radius: 10px;
-  background: #8a4b22;
+  background: var(--up);
   color: #f6edd8;
   font-family: var(--sans);
   font-size: 14px;
@@ -1417,8 +1765,13 @@ body.night .player { filter: saturate(0.85) brightness(0.72); }
   text-align: left;
 }
 
-.seed-ico { display: block; width: 36px; height: 36px; flex: none; }
-.seed-ico svg { width: 100%; height: 100%; display: block; }
+.seed-ico { display: block; width: 40px; height: 44px; flex: none; }
+.seed-ico img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  image-rendering: pixelated;
+}
 .seed-ico.tiny { width: 28px; height: 28px; }
 .seed-copy { display: flex; flex-direction: column; gap: 2px; }
 .seed-copy strong { font-size: 16px; }
@@ -1426,9 +1779,9 @@ body.night .player { filter: saturate(0.85) brightness(0.72); }
 
 .buy-seed,
 .barn-row button,
-#buy,
-#sell,
-#sell-all {
+.buy-btn,
+.sell-btn,
+.sell-all-btn {
   border-radius: 10px;
   font-family: var(--sans);
   font-size: 14px;
@@ -1536,7 +1889,8 @@ body.night .player { filter: saturate(0.85) brightness(0.72); }
 .market-overlay[hidden] { display: none; }
 
 .market-card {
-  width: min(980px, 100%);
+  width: min(980px, calc(100vw - 48px));
+  min-width: 0;
   max-height: calc(100vh - 48px);
   overflow: auto;
   padding: 18px 18px 12px;
@@ -1554,9 +1908,15 @@ body.night .player { filter: saturate(0.85) brightness(0.72); }
   font-weight: 600;
 }
 
+.market-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 260px;
+  gap: 12px 16px;
+  align-items: start;
+}
 .market-layout[hidden] { display: none; }
 
-.market-tabs[hidden] { display: none; }
+.market-tabs button[hidden] { display: none; }
 
 .market-tabs {
   display: flex;
@@ -1581,6 +1941,148 @@ body.night .player { filter: saturate(0.85) brightness(0.72); }
 }
 
 .trade-book[hidden] { display: none; }
+
+.quest-book[hidden] { display: none; }
+
+.quest-book {
+  display: grid;
+  grid-template-columns: 260px minmax(0, 1fr);
+  gap: 18px;
+  min-height: 340px;
+}
+
+.quest-side {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-right: 14px;
+  border-right: 2px solid rgba(90, 60, 30, 0.14);
+}
+
+.quest-group { display: flex; flex-direction: column; }
+
+.quest-block {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  align-items: baseline;
+  width: 100%;
+  padding: 8px 4px;
+  border: 0;
+  border-radius: 10px;
+  background: transparent;
+  color: #6d5c48;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  font-size: 13px;
+  text-align: left;
+}
+
+.quest-block::before {
+  content: "▸";
+  margin-right: 6px;
+  letter-spacing: 0;
+}
+
+.quest-group.open .quest-block::before { content: "▾"; }
+
+.quest-block b {
+  letter-spacing: 0;
+  text-transform: none;
+  font-weight: 700;
+}
+
+.quest-block b.complete { color: #3f7a30; }
+.quest-block b.working { color: #3e2c1c; }
+.quest-block b.waiting { color: #a89880; }
+
+.quest-group-list { display: flex; flex-direction: column; }
+.quest-group-list[hidden] { display: none; }
+
+.quest-pick {
+  display: block;
+  width: 100%;
+  margin-top: 6px;
+  padding: 9px 12px;
+  border: 2px solid transparent;
+  border-radius: 12px;
+  background: #f3e6cc;
+  color: #3e2c1c;
+  font-weight: 700;
+  text-align: left;
+}
+
+.quest-pick.done {
+  position: relative;
+  color: #3e2c1c;
+  background: #f7f0e2;
+}
+
+.quest-pick.done::after {
+  content: "";
+  position: absolute;
+  left: 12px;
+  right: 12px;
+  top: 50%;
+  height: 2px;
+  background: rgba(62, 44, 28, 0.45);
+  pointer-events: none;
+}
+.quest-pick.active { background: #e5f0d4; }
+.quest-pick.selected {
+  border-color: #6b3e24;
+  background: #fff6d4;
+  color: #3e2c1c;
+}
+
+.quest-detail { padding: 6px 8px 8px 4px; }
+
+.quest-kicker {
+  margin: 0 0 6px;
+  color: #8a7764;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.quest-detail h3 {
+  margin: 0 0 10px;
+  font-size: 28px;
+  font-weight: 700;
+  color: #3e2c1c;
+}
+
+.quest-detail.complete h3 {
+  position: relative;
+  display: inline-block;
+}
+
+.quest-detail.complete h3::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 55%;
+  height: 2px;
+  background: rgba(62, 44, 28, 0.45);
+}
+
+.quest-detail p { margin: 0; color: #3e2c1c; font-size: 16px; line-height: 1.45; }
+
+.quest-reward {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-top: 22px;
+  padding-top: 14px;
+  border-top: 2px solid rgba(90, 60, 30, 0.14);
+  font-weight: 800;
+}
+
+.quest-reward span { color: #8a7764; letter-spacing: 0.04em; text-transform: uppercase; font-size: 13px; }
+.quest-reward b { color: #2c7a45; font-size: 20px; }
 
 .trade-summary {
   display: flex;
@@ -1622,20 +2124,133 @@ body.night .player { filter: saturate(0.85) brightness(0.72); }
 .trade-row .up { color: var(--up); }
 .trade-row .down { color: var(--down); }
 
-.market-layout {
+#market .market-card { width: min(760px, calc(100vw - 48px)); }
+#market-prices {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 260px;
-  gap: 12px 16px;
-  align-items: start;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+#market-prices[hidden] { display: none; }
+.stall {
+  min-width: 0;
+  padding: 12px 12px 14px;
+  border: 2px solid rgba(90, 60, 30, 0.14);
+  border-radius: 14px;
+  background: #fffaf0;
+}
+.stall header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+.stall .trade-name { font-size: 22px; }
+.stall .trade-price { margin: 0; font-size: 26px; }
+.stall .trade-meta { margin: 4px 0 10px; }
+.stall .trade-actions { grid-template-columns: 1fr; }
+
+#exchange .market-card {
+  background: #16130f;
+  color: #f6edd8;
+  border-color: #3a2a1c;
+}
+#exchange .market-title { color: #f6edd8; }
+#exchange .desk-purse { color: #f6edd8; }
+#exchange .desk-purse #exchange-net { color: #cbbba6; }
+#exchange .shop-head button {
+  border: 2px solid #6b5340;
+  border-radius: 10px;
+  background: #2a241c;
+  color: #f6edd8;
+  padding: 6px 12px;
+}
+#exchange .market-tabs button {
+  background: #2a241c;
+  color: #f6edd8;
+}
+#exchange .market-tabs button.active {
+  border-color: #e0a322;
+  background: #3a2e22;
+  color: #f0c56a;
+}
+#exchange .qty-row button {
+  background: #2a241c;
+  color: #f6edd8;
+  border-color: #4a3b2c;
+}
+#exchange .qty-row button.active {
+  border-color: #e0a322;
+  background: #3a2e22;
+  color: #f0c56a;
+}
+#exchange .muted { color: #b5a48e; }
+#exchange .trade-row { border-bottom-color: rgba(246, 237, 216, 0.12); }
+#exchange .trade-row span,
+#exchange .trade-empty { color: #b5a48e; }
+#exchange .chart-wrap { background: #1a1612; }
+
+#exchange-prices { display: block; }
+#exchange-prices[hidden] { display: none; }
+.exchange-qty { width: min(420px, 100%); margin: 0 0 8px; }
+.exchange-note { margin-bottom: 8px; }
+.chart-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.quote {
+  min-width: 0;
+  padding: 8px;
+  border: 2px solid #3d3228;
+  border-radius: 12px;
+  background: #221c16;
+}
+.quote.selected { border-color: #e0a322; }
+.quote header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+}
+.quote .trade-name { font-size: 18px; margin: 0; }
+.quote .trade-price { margin: 0; font-size: 18px; }
+.quote-facts {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+  margin: 2px 0 6px;
+}
+.quote .trade-meta,
+.quote .trade-pnl { margin: 0; font-size: 12px; line-height: 1.3; }
+.quote .trade-pnl { flex: none; gap: 8px; }
+.quote .price-chart { height: 108px; }
+.quote .trade-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 6px;
+  margin-top: 6px;
+}
+#exchange .quote .buy-btn,
+#exchange .quote .sell-btn,
+#exchange .quote .sell-all-btn {
+  grid-column: auto;
+  padding: 7px 4px;
+  font-size: 13px;
+}
+#exchange .quote .sell-all-btn {
+  border-color: #6b5340;
+  background: #2a241c;
+  color: #f6edd8;
 }
 
 .market-board { display: contents; }
 
-#ticker { grid-column: 1 / -1; }
+.ticker { grid-column: 1 / -1; }
 
-#market-side { grid-column: 2; grid-row: 2 / span 2; }
+.market-side { grid-column: 2; grid-row: 2 / span 2; }
 
-#chart { display: block; width: 100%; height: 280px; }
+.price-chart { display: block; width: 100%; height: 280px; }
 
 .chart-tip {
   position: absolute;
@@ -1686,7 +2301,7 @@ body.night .player { filter: saturate(0.85) brightness(0.72); }
 .trade-price.up { color: var(--up); }
 .trade-price.down { color: var(--down); }
 
-#trade-name { margin-bottom: 6px; font-family: var(--sans); font-size: 28px; letter-spacing: 0; text-transform: none; }
+.trade-name { margin-bottom: 6px; font-family: var(--sans); font-size: 28px; letter-spacing: 0; text-transform: none; }
 
 .advice { margin: 0 0 14px; font-size: 14px; line-height: 1.45; }
 
@@ -1712,13 +2327,12 @@ body.night .player { filter: saturate(0.85) brightness(0.72); }
 
 .trade-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 
-#buy, #sell, #sell-all { padding: 10px 12px; border: 0; color: #f6edd8; }
-#buy[hidden] { display: none; }
-.trade-actions:has(#buy[hidden]) #sell { grid-column: 1 / -1; }
+.buy-btn, .sell-btn, .sell-all-btn { padding: 10px 12px; border: 0; color: #f6edd8; }
+.trade-actions:not(:has(.buy-btn)) .sell-btn { grid-column: 1 / -1; }
 
-#buy { background: var(--up); }
-#sell { background: #8a4b22; }
-#sell-all {
+.buy-btn { background: var(--up); }
+.sell-btn { background: #8a4b22; }
+.sell-all-btn {
   grid-column: 1 / -1;
   border: 1.5px solid rgba(42, 33, 24, 0.22);
   background: transparent;
@@ -1740,7 +2354,8 @@ button:disabled { cursor: not-allowed; opacity: 0.45; }
   .player.acting svg,
   .player.acting img,
   .player.walking img,
-  .chore-fx i,
+  .weather { animation: none; }
+  .weather::before { animation: none; }
   .chore-fx b,
   .tile.field.till,
   .tile.field.water,
@@ -1758,7 +2373,11 @@ button:disabled { cursor: not-allowed; opacity: 0.45; }
 
   .brand h1 { font-size: 34px; }
   .market-layout { grid-template-columns: 1fr; }
-  #market-side { grid-column: auto; grid-row: auto; }
+  .chart-grid,
+  #market-prices { grid-template-columns: 1fr; }
+  .quest-book { grid-template-columns: 1fr; }
+  .quest-side { border-right: 0; padding-right: 0; border-bottom: 2px solid rgba(90, 60, 30, 0.14); padding-bottom: 12px; }
+  .market-side { grid-column: auto; grid-row: auto; }
   .ticker { grid-template-columns: 1fr 1fr; }
-  #chart { height: 220px; }
+  .price-chart { height: 220px; }
 }
