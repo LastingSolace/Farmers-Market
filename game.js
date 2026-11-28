@@ -25,6 +25,7 @@ const FIELD = { x: 2, y: 3, w: 12, h: 8 };
 const PLOT_COUNT = FIELD.w * FIELD.h;
 const PLOT_PRICE = 100;
 const CAN_MAX = 6;
+const HAND_CAN = 3;
 const CAN_UPGRADES = 4;
 const CAN_UPGRADE_PLOTS = 2;
 const CAN_UPGRADE_PRICE = 50;
@@ -460,6 +461,7 @@ const TOOL_KEYS = {
   Digit5: { tool: "seed", seed: "tomato" },
   Digit6: { tool: "seed", seed: "cotton" },
 };
+const TOOL_SLOTS = Object.values(TOOL_KEYS);
 const REACH = 42;
 
 const $ = (id) => document.getElementById(id);
@@ -497,6 +499,45 @@ let choreTimer = 0;
 const CHORE_MS = 750;
 let walking = false;
 let walkTarget = null;
+let pendingChore = null;
+let stoodTile = null;
+
+function cancelWalk() {
+  walkTarget = null;
+  pendingChore = null;
+}
+
+function autoWorkPlot() {
+  if (!state || state.place !== "farm") {
+    stoodTile = null;
+    return;
+  }
+  const tile = tileAtPixel(feet().x, feet().y);
+  const key = `${tile.x},${tile.y}`;
+  if (stoodTile === null) {
+    stoodTile = key;
+    return;
+  }
+  if (stoodTile === key) return;
+  stoodTile = key;
+  if (acting || pendingChore || buildMode || menuOpen || shopOpen || wardrobeOpen || monsangoOpen || hqOpen || marketOpen) return;
+  const plot = plotAt(tile.x, tile.y);
+  if (!plot || !plot.owned) return;
+  if (plot.crop && isReady(plot)) {
+    startChore("harvest", plot.x, plot.y);
+    return;
+  }
+  if (plot.crop) return;
+  if (!plot.tilled) {
+    state.tool = "hoe";
+    startChore("till", plot.x, plot.y);
+    return;
+  }
+  if ((state.seeds.wheat || 0) > 0) {
+    selectSeed("wheat");
+    startChore("plant", plot.x, plot.y);
+  }
+}
 let moveSaveAt = 0;
 let handJobs = [];
 let handSaveAt = 0;
@@ -595,7 +636,7 @@ function isTree(x, y) {
     || (x === 23 && y === 13)
     || (x === 15 && y === 4)
     || (x === 12 && y === 1)
-    || (x === 8 && y === 12)
+    || (x === 8 && y === 13)
     || (x === 22 && y === 8)
     || (x === 21 && y === 12);
 }
@@ -679,35 +720,35 @@ const QUESTS = [
   {
     title: "Water the field",
     text: "Water tilled soil or a growing crop.",
-    guide: "Stand on tilled soil or a growing crop. Select the watering can, or press 2. Press Space to water. One watering lasts until harvest and cuts the grow time in half. Fill the can at the well when it is empty.",
+    guide: "Stand on tilled soil or a growing crop. Select the can, or press 2, then press Space. One watering lasts until harvest and halves the time left. Fill the can at the well.",
     reward: 20,
     done: (data) => data.plots.some((plot) => plot.watered) || harvestedOf(data) > 0,
   },
   {
     title: "First harvest",
     text: "Harvest a ripe crop.",
-    guide: "Wait for the crop to finish growing. Wheat takes six hours if you watered it, or twelve if you did not. Stand on the ripe plot and press Space to harvest.",
+    guide: "Stand on the ripe crop and press Space.",
     reward: 60,
     done: (data) => harvestedOf(data) > 0,
   },
   {
     title: "Take it to market",
-    text: "Sell a crop. Press Tab on the farm.",
-    guide: "Press Tab to open the market. Choose the crop you harvested, then press Sell. Tab closes the market again.",
+    text: "Sell a crop from the market.",
+    guide: "Press Tab, then sell the crop.",
     reward: 30,
     done: (data) => harvestedOf(data) > goodsOf(data) || (data.trades || []).some((trade) => trade.side === "sell"),
   },
   {
     title: "More land",
-    text: "Buy another plot.",
-    guide: "Walk up to Trailer Supply, the trailer by the path, and press Space. Buy a plot for 100g. The new square is added next to the field you already own.",
+    text: "Buy a plot (100g) at Trailer Supply.",
+    guide: "Buy a plot (100g) at Trailer Supply.",
     reward: 40,
     done: (data) => data.plots.filter((plot) => plot.owned).length > STARTER_PLOTS.w * STARTER_PLOTS.h,
   },
   {
     title: "A new crop",
     text: "Plant carrots, tomatoes, or cotton.",
-    guide: "Buy carrot, tomato, or cotton seeds at Trailer Supply. Till a plot with the hoe (1), then select that crop with 4, 5, or 6. Stand on the tilled soil and press Space to plant.",
+    guide: "Buy the seeds at Trailer Supply, then plant one.",
     reward: 25,
     done: (data) => data.plots.some((plot) => plot.crop && plot.crop !== "wheat")
       || ["carrot", "tomato", "cotton"].some((id) => (data.harvested?.[id] || 0) > 0),
@@ -715,32 +756,32 @@ const QUESTS = [
   {
     block: "homestead",
     title: "Save for a farmhand",
-    text: "Set aside 1,000g for a farmhand.",
-    guide: "A farmhand walks the field and tills, plants, waters, and harvests while you are doing something else. The first one is hired at Trailer Supply for 1,000g, then costs 15g each morning. Keep harvesting, and sell crops with Tab, until you have 1,000g.",
+    text: "Save 1,000g for a farmhand.",
+    guide: "Save 1,000g. The farmhand is hired at Trailer Supply.",
     reward: 30,
     done: (data) => (data.gold || 0) >= FARMHAND_PRICE || (data.hands || []).length > 0 || data.farmhand,
   },
   {
     block: "homestead",
     title: "Hire a farmhand",
-    text: "Hire a farmhand at Trailer Supply.",
-    guide: "Walk up to Trailer Supply, the trailer beside the path, and press Space. Hire the farmhand for 1,000g. He works one chore at a time. Each morning he needs 15g, or he waits until you can pay him.",
+    text: "Hire a farmhand (1,000g) from Trailer Supply.",
+    guide: "Hire a farmhand (1,000g) from Trailer Supply.",
     reward: 40,
     done: (data) => (data.hands || []).length > 0 || data.farmhand,
   },
   {
     block: "homestead",
     title: "Open the road",
-    text: "Unlock the city for 1,000g.",
-    guide: "Walk to the top of the path, where it leaves the farm. Press Space and pay 1,000g to open the road into town. The stock market is there, and Farmer's HQ hires more farmhands. Your farmhand keeps working the field while you are in town.",
+    text: "Open the city (1,000g) at the top of the path.",
+    guide: "Open the city (1,000g) at the top of the path.",
     reward: 50,
     done: (data) => Boolean(data.city),
   },
   {
     block: "orchard",
     title: "Open the orchard",
-    text: "Unlock the orchard for 20,000g.",
-    guide: "Walk to the bottom of the path, where it leaves the farm. Press Space and pay 20,000g to open the orchard. Rows of trees and two crossing lanes are waiting on the other side.",
+    text: "Open the orchard (20,000g) at the bottom of the path.",
+    guide: "Open the orchard (20,000g) at the bottom of the path.",
     reward: 100,
     done: (data) => Boolean(data.orchard),
   },
@@ -857,6 +898,10 @@ function isValidSave(data) {
   if (!data.prices || !data.history || !data.seeds || !data.goods || !data.player) return false;
   if (typeof data.gold !== "number" || typeof data.day !== "number" || typeof data.hour !== "number") return false;
   const place = data.place === "city" || data.place === "orchard" ? data.place : "farm";
+  if (place === "farm" && data.player.x === 8 && data.player.y === 13) {
+    data.player.y = 12;
+    if (typeof data.player.py === "number") data.player.py = 12 * TILE;
+  }
   if (!walkable(data.player.x, data.player.y, place)) return false;
   for (const id of ORDER) {
     if (typeof data.prices[id] !== "number") return false;
@@ -955,6 +1000,9 @@ function normalize(data) {
     px: hand.px,
     py: hand.py,
     facing: FACING[hand.facing] ? hand.facing : "up",
+    water: typeof hand.water === "number"
+      ? Math.max(0, Math.min(HAND_CAN, Math.round(hand.water)))
+      : HAND_CAN,
   }));
   data.farmhand = data.hands.length > 0;
   data.hand = data.hands[0] || null;
@@ -1133,8 +1181,12 @@ function directionOf(id) {
   return "flat";
 }
 
+function fairPercent(id) {
+  return Math.round(((state.prices[id] - CROPS[id].mean) / CROPS[id].mean) * 100);
+}
+
 function versus(id) {
-  const pct = Math.round(((state.prices[id] - CROPS[id].mean) / CROPS[id].mean) * 100);
+  const pct = fairPercent(id);
   if (Math.abs(pct) < 1) return "At Fair Value";
   if (pct > 0) return `${pct}% above Fair Value`;
   return `${Math.abs(pct)}% below Fair Value`;
@@ -1178,11 +1230,28 @@ function ripeLine(ripe) {
   return "";
 }
 
+function rainingNow() {
+  return Boolean(state.weather && state.weather.id === "rain" && state.weather.day === state.day);
+}
+
+function soakRain() {
+  if (!rainingNow()) return false;
+  let changed = false;
+  state.plots.forEach((plot) => {
+    if (!plot.owned || plot.watered || (!plot.tilled && !plot.crop)) return;
+    plot.watered = true;
+    changed = true;
+  });
+  return changed;
+}
+
 function growCrops() {
+  soakRain();
   const ripe = [];
+  const rain = rainingNow();
   state.plots.forEach((plot) => {
     if (!plot.crop) {
-      plot.watered = false;
+      plot.watered = rain && plot.owned && plot.tilled;
       return;
     }
     if (isReady(plot)) return;
@@ -1312,6 +1381,7 @@ function spawnHand(index) {
     px: FIELD.x * TILE + index * 16,
     py: (FIELD.y + FIELD.h) * TILE,
     facing: "up",
+    water: HAND_CAN,
   };
 }
 
@@ -1327,7 +1397,55 @@ function handStand(tx, ty) {
   };
 }
 
-function handJobNeeded(job) {
+function dryCropFor(except) {
+  return state.plots.some((plot) => {
+    if (!plot.owned || !plot.crop || plot.watered || isReady(plot)) return false;
+    if (acting && acting.x === plot.x && acting.y === plot.y) return false;
+    return !claimedPlot(plot.x, plot.y, except);
+  });
+}
+
+function besideWell(x, y) {
+  const well = state.well;
+  if (!well) return false;
+  const dx = Math.abs(x - well.x);
+  const dy = Math.abs(y - well.y);
+  return dx <= 1 && dy <= 1 && (dx || dy);
+}
+
+function wellStand(index) {
+  const hand = state.hands[index];
+  const well = state.well;
+  if (!hand || !well) return null;
+  const taken = new Set();
+  handJobs.forEach((job, jobIndex) => {
+    if (jobIndex !== index && job && job.id === "fill") taken.add(`${job.x},${job.y}`);
+  });
+  let best = null;
+  let bestDist = Infinity;
+  for (let dy = -1; dy <= 1; dy += 1) {
+    for (let dx = -1; dx <= 1; dx += 1) {
+      if (!dx && !dy) continue;
+      const x = well.x + dx;
+      const y = well.y + dy;
+      if (!inBounds(x, y) || !walkable(x, y, "farm") || taken.has(`${x},${y}`)) continue;
+      const stand = handStand(x, y);
+      if (!canStand(stand.x, stand.y, "farm")) continue;
+      const dist = Math.hypot(stand.x - hand.px, stand.y - hand.py);
+      if (dist < bestDist) {
+        bestDist = dist;
+        best = { x, y };
+      }
+    }
+  }
+  return best;
+}
+
+function handJobNeeded(job, index) {
+  if (job.id === "fill") {
+    const hand = state.hands[index];
+    return Boolean(hand) && hand.water < HAND_CAN && besideWell(job.x, job.y) && dryCropFor(index);
+  }
   const plot = plotAt(job.x, job.y);
   if (!plot || !plot.owned) return false;
   if (acting && acting.x === job.x && acting.y === job.y) return false;
@@ -1365,7 +1483,7 @@ function chooseHandJob(index) {
       id = "harvest";
       rank = 0;
     } else if (plot.crop && !plot.watered) {
-      id = "water";
+      id = (hand.water | 0) > 0 ? "water" : "fill";
       rank = 1;
     } else if (plot.tilled && !plot.crop && plantSeed) {
       id = "plant";
@@ -1390,6 +1508,11 @@ function chooseHandJob(index) {
     bestDist = dist;
     best = { id, x, y, seed: id === "plant" ? plantSeed : plot.crop, left: null };
   });
+  if (best && best.id === "fill") {
+    const stand = wellStand(index);
+    if (!stand) return null;
+    return { id: "fill", x: stand.x, y: stand.y, seed: null, left: null };
+  }
   return best;
 }
 
@@ -1441,7 +1564,14 @@ function finishHandJob(index) {
   const job = handJobs[index];
   handJobs[index] = null;
   hideHandFx(index);
-  if (!job || !handJobNeeded(job)) return;
+  const hand = state.hands[index];
+  if (!job || !hand || !handJobNeeded(job, index)) return;
+  if (job.id === "fill") {
+    hand.water = HAND_CAN;
+    save();
+    paint();
+    return;
+  }
   const plot = plotAt(job.x, job.y);
   if (job.id === "plant") {
     const seed = state.seeds[job.seed] > 0 ? job.seed : seedForCrew();
@@ -1449,7 +1579,10 @@ function finishHandJob(index) {
     state.seeds[seed] -= 1;
     plot.crop = seed;
     plot.progress = 0;
+    if (rainingNow()) plot.watered = true;
   } else if (job.id === "water") {
+    if ((hand.water | 0) <= 0) return;
+    hand.water -= 1;
     plot.watered = true;
   } else if (job.id === "harvest") {
     state.goods[plot.crop] += 1;
@@ -1460,7 +1593,7 @@ function finishHandJob(index) {
     plot.tilled = false;
   } else if (job.id === "till") {
     plot.tilled = true;
-    plot.watered = false;
+    plot.watered = rainingNow();
   }
   save();
   paint();
@@ -1485,24 +1618,37 @@ function updateHand(dt) {
       if (job.left <= 0) finishHandJob(index);
       return;
     }
-    if (!job || !handJobNeeded(job)) {
+    if (!job || !handJobNeeded(job, index)) {
       job = chooseHandJob(index);
       handJobs[index] = job;
     }
     if (!job) return;
+    if (job.id === "fill" && !besideWell(job.x, job.y)) {
+      const stand = wellStand(index);
+      if (!stand) {
+        handJobs[index] = null;
+        return;
+      }
+      job.x = stand.x;
+      job.y = stand.y;
+    }
     const stand = handStand(job.x, job.y);
     const vx = stand.x - hand.px;
     const vy = stand.y - hand.py;
     const length = Math.hypot(vx, vy);
     if (length < 8) {
-      if (!handJobNeeded(job)) {
+      if (job.id === "water" && (hand.water | 0) <= 0) {
+        handJobs[index] = null;
+        return;
+      }
+      if (!handJobNeeded(job, index)) {
         handJobs[index] = null;
         return;
       }
       const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
       job.left = reduce ? 0 : CHORE_MS;
       if (Math.abs(vx) >= Math.abs(vy)) hand.facing = vx >= 0 ? "right" : "left";
-      showHandFx(index, job.id, job.x, job.y);
+      showHandFx(index, job.id === "fill" ? "water" : job.id, job.id === "fill" ? state.well.x : job.x, job.id === "fill" ? state.well.y : job.y);
       if (job.left <= 0) finishHandJob(index);
       return;
     }
@@ -1548,9 +1694,20 @@ function paintHand() {
     node.dataset.facing = hand.facing;
     node.classList.toggle("walking", Boolean(job) && job.left == null);
     node.classList.toggle("acting", Boolean(job) && job.left != null);
-    if (job && job.left != null) node.dataset.chore = job.id;
+    if (job && job.left != null) node.dataset.chore = job.id === "fill" ? "water" : job.id;
     else delete node.dataset.chore;
     node.style.transform = `translate(${hand.px}px, ${hand.py}px)`;
+    let badge = node.querySelector(".hand-can");
+    if (!badge) {
+      badge = document.createElement("span");
+      badge.className = "hand-can";
+      badge.innerHTML = "<i></i><i></i><i></i>";
+      node.append(badge);
+    }
+    const left = hand.water | 0;
+    [...badge.children].forEach((drop, dropIndex) => {
+      drop.classList.toggle("full", dropIndex < left);
+    });
   });
   if (!show) hideHandFx();
 }
@@ -1589,10 +1746,7 @@ function runWeather() {
   });
   state.weather = { id, day: state.day };
   if (id === "rain") {
-    state.plots.forEach((plot) => {
-      if (!plot.owned || (!plot.crop && !plot.tilled)) return;
-      plot.watered = true;
-    });
+    soakRain();
     return "Rain watered the field.";
   }
   if (id === "hail") {
@@ -1757,7 +1911,7 @@ function enterCity() {
   state.player.px = 11 * TILE;
   state.player.py = 11 * TILE;
   state.player.facing = "up";
-  walkTarget = null;
+  cancelWalk();
   paintPlace();
   save();
   paint();
@@ -1770,7 +1924,7 @@ function enterFarmFromOrchard() {
   state.player.px = 16 * TILE;
   state.player.py = 11 * TILE;
   state.player.facing = "up";
-  walkTarget = null;
+  cancelWalk();
   paintPlace();
   save();
   paint();
@@ -1785,7 +1939,7 @@ function enterOrchard() {
   state.player.px = 11 * TILE;
   state.player.py = 1 * TILE;
   state.player.facing = "down";
-  walkTarget = null;
+  cancelWalk();
   paintPlace();
   save();
   paint();
@@ -1798,7 +1952,7 @@ function enterFarm() {
   state.player.px = 16 * TILE;
   state.player.py = 2 * TILE;
   state.player.facing = "down";
-  walkTarget = null;
+  cancelWalk();
   paintPlace();
   save();
   paint();
@@ -1885,12 +2039,16 @@ function finishChore() {
   const plot = plotAt(job.x, job.y);
   if (job.id === "till") {
     plot.tilled = true;
-    plot.watered = false;
-    setStatus("Soil turned. Plant a seed. Watering is optional and halves the grow time.");
+    const rain = rainingNow();
+    plot.watered = rain;
+    setStatus(rain
+      ? "Soil turned. The rain watered it, so a seed planted here finishes in half the time."
+      : "Soil turned. Plant a seed. Watering is optional and halves the grow time.");
   } else if (job.id === "plant") {
     const crop = CROPS[job.seed];
     plot.crop = job.seed;
     plot.progress = 0;
+    if (rainingNow()) plot.watered = true;
     log(`Planted ${crop.singular}.`);
     setStatus(plot.watered
       ? `Planted ${crop.singular}. It's watered, so it finishes in half the time.`
@@ -1978,7 +2136,7 @@ function startChore(id, x, y) {
     return;
   }
   faceTile(x, y);
-  walkTarget = null;
+  cancelWalk();
   walking = false;
   acting = job;
   showChoreFx(id, x, y);
@@ -2067,7 +2225,7 @@ function offerHere() {
   }
   const home = nearbyRole(["bed", "house"]);
   if (home) {
-    return { kind: "house", x: home.x, y: home.y, action: { id: "wardrobe", label: "Cottage" } };
+    return { kind: "house", x: home.x, y: home.y, action: { id: "wardrobe", label: "Home" } };
   }
   return null;
 }
@@ -2292,7 +2450,7 @@ function toggleBuild() {
   if (!state.hammer || acting || state.place !== "farm") return;
   buildMode = !buildMode;
   buildPick = null;
-  walkTarget = null;
+  cancelWalk();
   held.clear();
   paint();
 }
@@ -2313,6 +2471,14 @@ function buyHammer() {
   paint();
 }
 
+function plotClickAction(plot) {
+  if (!plot || !plot.owned) return null;
+  const action = nextAction(plot);
+  if (!action || action.disabled) return null;
+  if (action.id !== "till" && action.id !== "water" && action.id !== "plant" && action.id !== "harvest") return null;
+  return action;
+}
+
 function clickTile(x, y, event) {
   if (buildMode) {
     if (!acting && state.place === "farm") handleBuildClick(x, y);
@@ -2327,23 +2493,27 @@ function clickTile(x, y, event) {
     }
     const goal = walkGoal(x, y, event);
     if (!goal) return;
+    pendingChore = null;
     walkTarget = goal;
     return;
   }
   if (state.place === "orchard") {
     const goal = walkGoal(x, y, event);
     if (!goal) return;
+    pendingChore = null;
     walkTarget = goal;
     return;
   }
   const offer = offerHere();
   const role = roleAt(x, y);
+  const action = role === "field" ? plotClickAction(plotAt(x, y)) : null;
   if (offer && !offer.action.disabled) {
     const hit = (offer.kind === "plot" && offer.x === x && offer.y === y)
       || (offer.kind === "shop" && role === "shop")
       || (offer.kind === "house" && (role === "house" || role === "bed"))
       || (offer.kind === "gate" && x === 16 && (y <= 1 || y >= 12));
     if (hit) {
+      pendingChore = null;
       doOffer();
       return;
     }
@@ -2354,6 +2524,7 @@ function clickTile(x, y, event) {
     paint();
     return;
   }
+  pendingChore = action ? { id: action.id, x, y } : null;
   walkTarget = goal;
 }
 
@@ -2373,7 +2544,7 @@ function updateMovement(dt, now) {
   if (held.has("left")) dx -= 1;
   if (held.has("right")) dx += 1;
   if (dx || dy) {
-    walkTarget = null;
+    cancelWalk();
     const length = Math.hypot(dx, dy);
     moveBy((dx / length) * WALK_SPEED * dt, (dy / length) * WALK_SPEED * dt);
     faceFromDelta(dx, dy);
@@ -2390,9 +2561,15 @@ function updateMovement(dt, now) {
     const vy = walkTarget.y - spot.y;
     const length = Math.hypot(vx, vy);
     if (length < 4) {
-      walkTarget = null;
+      const chore = pendingChore;
+      cancelWalk();
       walking = false;
       save();
+      if (chore && feetOn(chore.x, chore.y)) {
+        const plot = plotAt(chore.x, chore.y);
+        const ready = plotClickAction(plot);
+        if (ready && ready.id === chore.id) doOffer();
+      }
       return true;
     }
     const step = Math.min(length, WALK_SPEED * dt);
@@ -2401,7 +2578,7 @@ function updateMovement(dt, now) {
     faceFromDelta(vx, vy);
     walking = true;
     if (before === state.player.px + state.player.py) {
-      walkTarget = null;
+      cancelWalk();
       walking = false;
       setStatus("Something is in the way.");
       save();
@@ -2427,7 +2604,7 @@ function openWardrobe() {
   if (marketOpen) closeMarket();
   wardrobeOpen = true;
   held.clear();
-  walkTarget = null;
+  cancelWalk();
   walking = false;
   $("wardrobe").hidden = false;
   paint();
@@ -2442,7 +2619,7 @@ function closeWardrobe() {
 function wearLook(id) {
   if (!FARMERS[id] || state.look === id) return;
   state.look = id;
-  setStatus(id === "bright" ? "Changed into the blue dress." : "Changed into the overalls.");
+  setStatus(id === "bright" ? "Changed into Jill." : "Changed into Jack.");
   save();
   paint();
 }
@@ -2459,7 +2636,7 @@ function openShop() {
   if (hqOpen) closeHq();
   shopOpen = true;
   held.clear();
-  walkTarget = null;
+  cancelWalk();
   walking = false;
   $("shop").hidden = false;
   paint();
@@ -2478,7 +2655,7 @@ function openMonsango() {
   if (hqOpen) closeHq();
   monsangoOpen = true;
   held.clear();
-  walkTarget = null;
+  cancelWalk();
   walking = false;
   $("monsango").hidden = false;
   paint();
@@ -2497,7 +2674,7 @@ function openHq() {
   if (marketOpen) closeMarket();
   hqOpen = true;
   held.clear();
-  walkTarget = null;
+  cancelWalk();
   walking = false;
   $("hq").hidden = false;
   paint();
@@ -2563,7 +2740,7 @@ function openMarket(desk) {
   marketDesk = desk === "exchange" ? "exchange" : "tab";
   marketOpen = true;
   held.clear();
-  walkTarget = null;
+  cancelWalk();
   walking = false;
   hoverX = null;
   $("market").hidden = marketDesk !== "tab";
@@ -2772,16 +2949,47 @@ function selectSeed(id) {
 function useToolKey(code) {
   const pick = TOOL_KEYS[code];
   if (!pick) return false;
-  if (pick.tool === "seed") {
-    selectSeed(pick.seed);
-    setStatus(`Next planting is ${CROPS[pick.seed].name}.`);
+  applyToolSlot(pick);
+  return true;
+}
+
+function toolSlotIndex() {
+  return TOOL_SLOTS.findIndex((slot) => (
+    slot.tool === "seed"
+      ? state.tool === "seed" && state.selectedSeed === slot.seed
+      : state.tool === slot.tool
+  ));
+}
+
+function applyToolSlot(slot) {
+  if (slot.tool === "seed") {
+    selectSeed(slot.seed);
+    setStatus(`Next planting is ${CROPS[slot.seed].name}.`);
   } else {
-    state.tool = pick.tool;
-    setStatus(pick.tool === "hoe" ? "Hoe selected." : "Watering can selected.");
+    state.tool = slot.tool;
+    setStatus(slot.tool === "hoe" ? "Hoe selected." : "Watering can selected.");
   }
   save();
   paint();
-  return true;
+}
+
+let wheelCarry = 0;
+
+function scrollHotbar(event) {
+  if (!state || menuOpen || shopOpen || wardrobeOpen || monsangoOpen || hqOpen || marketOpen) return;
+  if (state.place !== "farm") return;
+  const target = event.target;
+  if (target && target.closest && target.closest("input, textarea")) return;
+  event.preventDefault();
+  const pixels = event.deltaMode === 1 ? event.deltaY * 16 : event.deltaY;
+  if (!pixels) return;
+  wheelCarry += pixels;
+  if (Math.abs(wheelCarry) < 40) return;
+  const dir = wheelCarry > 0 ? 1 : -1;
+  wheelCarry = 0;
+  const index = toolSlotIndex();
+  const from = index < 0 ? 0 : index;
+  applyToolSlot(TOOL_SLOTS[(from + dir + TOOL_SLOTS.length) % TOOL_SLOTS.length]);
 }
 
 function buySeed(id, qty = 1) {
@@ -3232,7 +3440,30 @@ function paintMap() {
       icon.innerHTML = html;
     }
   });
+  paintCropTip();
   paintPlayer();
+}
+
+let cropTipTile = null;
+
+function paintCropTip() {
+  const tip = $("crop-tip");
+  if (!tip) return;
+  if (!cropTipTile || !cropTipTile.isConnected) {
+    tip.hidden = true;
+    return;
+  }
+  const plot = plotAt(Number(cropTipTile.dataset.x), Number(cropTipTile.dataset.y));
+  if (!plot || !plot.crop) {
+    tip.hidden = true;
+    return;
+  }
+  const ready = isReady(plot);
+  const hours = hoursLeft(plot);
+  const text = ready ? "Ready to harvest" : `${hours} hour${hours === 1 ? "" : "s"} left`;
+  if (tip.textContent !== text) tip.textContent = text;
+  tip.hidden = false;
+  tip.style.transform = `translate(${cropTipTile.offsetLeft + cropTipTile.offsetWidth / 2}px, ${cropTipTile.offsetTop}px) translate(-50%, -115%)`;
 }
 
 function paintPlayer() {
@@ -3281,9 +3512,19 @@ function paintOffer() {
   }
   button.hidden = false;
   button.classList.toggle("waiting", Boolean(offer.action.disabled));
-  const label = offer.action.disabled ? offer.action.label : `${offer.action.label} · Space`;
+  const label = offerPrompt(offer.action);
   if (button.textContent !== label) button.textContent = label;
   button.style.transform = `translate(${offer.x * TILE + TILE / 2}px, ${offer.y * TILE}px) translate(-50%, -115%)`;
+}
+
+function offerPrompt(action) {
+  if (action.disabled) return action.label;
+  const enter = ["shop", "monsango", "hq", "exchange", "wardrobe", "market"];
+  if (enter.includes(action.id)) return `${action.label}\n(Press Space to Enter)`;
+  if (action.id === "unlock-city") return "Press Space to open the city for 1,000g";
+  if (action.id === "unlock-orchard") return "Press Space to open the orchard for 20,000g";
+  if (action.id === "fill") return "Press Space to fill the can";
+  return `Press Space to ${action.label}`;
 }
 
 function paintMenu() {
@@ -3295,7 +3536,7 @@ function paintMenu() {
 function openMenu() {
   menuOpen = true;
   held.clear();
-  walkTarget = null;
+  cancelWalk();
   walking = false;
   if (shopOpen) closeShop();
   if (wardrobeOpen) closeWardrobe();
@@ -3335,7 +3576,7 @@ function startNewGame() {
   save();
   closeMenu();
   paintPlace();
-  paint();
+  openWardrobe();
 }
 
 function fieldSnapshot() {
@@ -3426,11 +3667,12 @@ function paintHq() {
   $("hq-count").textContent = `${crew} farmhand${crew === 1 ? "" : "s"}`;
   const meta = $("hq-hire-meta");
   if (crew === 0) {
-    meta.textContent = `${nextCost}g to hire, then ${FARMHAND_WAGE}g each morning. Each hire costs ${FARMHAND_PRICE}g more, up to ${MAX_HANDS}.`;
+    meta.textContent = `${nextCost}g to hire, then ${FARMHAND_WAGE}g each morning. Each hire costs ${FARMHAND_PRICE}g more, up to ${MAX_HANDS}. Each can holds ${HAND_CAN} and refills at the well.`;
   } else if (state.handPaid) {
+    const can = `Each can holds ${HAND_CAN} and refills at the well.`;
     meta.textContent = crew >= MAX_HANDS
-      ? `Working. Morning wages ${wage}g.`
-      : `Working. Morning wages ${wage}g. Next hire is ${nextCost}g.`;
+      ? `Working. Morning wages ${wage}g. ${can}`
+      : `Working. Morning wages ${wage}g. Next hire is ${nextCost}g. ${can}`;
   } else {
     meta.textContent = `Idle until morning. Wages are ${wage}g.`;
   }
@@ -3555,7 +3797,7 @@ function paint() {
   const plotsOwned = ownedCount();
   const nextLand = nextPlotToBuy();
   landMeta.textContent = nextLand
-    ? `${plotsOwned} of ${PLOT_COUNT} plots`
+    ? `Adds a square beside land you own. ${plotsOwned} of ${PLOT_COUNT}.`
     : `All ${PLOT_COUNT} plots are yours`;
   buyLand.textContent = nextLand ? `${PLOT_PRICE}g` : "Full";
   buyLand.disabled = !nextLand || state.gold < PLOT_PRICE;
@@ -3597,7 +3839,7 @@ function paint() {
     hireBtn.disabled = true;
   } else {
     const cost = nextHandCost();
-    farmhandMeta.textContent = `Walks the rows tilling, planting, watering, and harvesting. ${FARMHAND_WAGE}g each morning after the ${cost}g hire.`;
+    farmhandMeta.textContent = `Hire for ${cost}g. Needs ${FARMHAND_WAGE}g each morning. Once paid, he works one chore at a time. His can holds ${HAND_CAN} and refills at the well.`;
     hireBtn.textContent = `${cost}g`;
     hireBtn.disabled = state.gold < cost;
   }
@@ -3752,6 +3994,18 @@ function paintDesk(root, desk, crop, cropId, qty, cost, owned, allPayout) {
     const priceNode = card.querySelector(".trade-price");
     priceNode.textContent = `${Math.round(state.prices[id])}g`;
     priceNode.className = `trade-price ${directionOf(id)}`;
+    const gap = card.querySelector(".fmv");
+    const pct = fairPercent(id);
+    if (Math.abs(pct) < 1) {
+      gap.textContent = "0%";
+      gap.className = "fmv flat";
+    } else if (pct > 0) {
+      gap.textContent = `+${pct}%`;
+      gap.className = "fmv up";
+    } else {
+      gap.textContent = `${pct}%`;
+      gap.className = "fmv down";
+    }
     const seeds = state.seeds[id];
     card.querySelector(".trade-meta").textContent = `${seeds} seed${seeds === 1 ? "" : "s"} · you hold ${held}`;
     const sell = card.querySelector(".sell-btn");
@@ -3799,9 +4053,9 @@ function fillTile(tile, x, y) {
     tile.setAttribute("aria-label", "Trailer Supply");
   } else if (role === "bed") {
     tile.innerHTML = `<span class="prop house-prop"><img src="art/house.png?v=1" alt=""></span>`;
-    tile.setAttribute("aria-label", "Cottage door");
+    tile.setAttribute("aria-label", "Home door");
   } else if (role === "house") {
-    tile.setAttribute("aria-label", "Cottage");
+    tile.setAttribute("aria-label", "Home");
   } else if (role === "tree") {
     const sway = ((x * 3 + y) % 4) * 0.28;
     tile.innerHTML = `<span class="prop tree-prop"><span class="tree-wind" style="--sway:${sway}s"><img src="art/tree.png?v=1" alt=""></span></span>`;
@@ -4013,6 +4267,20 @@ function bind() {
     if (!tile) return;
     clickTile(Number(tile.dataset.x), Number(tile.dataset.y), event);
   });
+  $("farm-grid").addEventListener("pointerover", (event) => {
+    const tile = event.target.closest(".tile");
+    if (!tile || tile === cropTipTile) return;
+    cropTipTile = tile;
+    paintCropTip();
+  });
+  $("farm-grid").addEventListener("pointerout", (event) => {
+    const tile = event.target.closest(".tile");
+    if (!tile || tile !== cropTipTile) return;
+    const next = event.relatedTarget && event.relatedTarget.closest && event.relatedTarget.closest(".tile");
+    if (next === tile) return;
+    cropTipTile = next || null;
+    paintCropTip();
+  });
   $("plot-action").addEventListener("click", (event) => {
     event.stopPropagation();
     doOffer();
@@ -4212,6 +4480,7 @@ function bind() {
     const dir = DIR_FROM_CODE[event.code];
     if (dir) held.delete(dir);
   });
+  window.addEventListener("wheel", scrollHotbar, { passive: false });
   window.addEventListener("blur", () => held.clear());
 }
 
@@ -4250,9 +4519,14 @@ function loop(now) {
   lastNow = now;
   const seconds = Math.min(dt, 50) / 1000;
   if (updateMovement(seconds, now)) paintPlayer();
+  autoWorkPlot();
   updateHand(seconds);
   paintHand();
   tickRustle(now);
+  if (soakRain()) {
+    save();
+    paint();
+  }
   if (!document.hidden && !menuOpen) {
     accumulator += dt;
     let steps = 0;
